@@ -9,7 +9,7 @@
 # OPTION 1: Source the script (Recommended)
 # ============================================================================
 # Place this in your $PROFILE to load all functions:
-# . "C:\Github\Personal\copilot-chat-exporter\profile-functions.ps1"
+# . "$env:USERPROFILE\path\to\github-copilot-chat-exporter\profile-functions.ps1"
 
 # ============================================================================
 # OPTION 2: Copy these functions directly into your $PROFILE
@@ -51,8 +51,8 @@ function Save-GitHubCopilotChat {
         [string]$Topic
     )
 
-    # ⚠️ UPDATE THIS PATH if you cloned to a different location
-    $scriptPath = "C:\Github\Personal\copilot-chat-exporter\Save-CopilotChat.ps1"
+    # ⚠️ UPDATE THIS PATH to where you cloned the repository
+    $scriptPath = "$env:USERPROFILE\path\to\github-copilot-chat-exporter\Save-CopilotChat.ps1"
 
     if (-not (Test-Path $scriptPath)) {
         Write-Host "❌ Script not found: $scriptPath" -ForegroundColor Red
@@ -83,8 +83,8 @@ function Resume-GitHubCopilotChat {
         # Shows last 10 sessions and opens selected file
     #>
 
-    # ⚠️ UPDATE THIS PATH if you cloned to a different location
-    $sessionsPath = "C:\Github\Personal\copilot-chat-exporter\sessions"
+    # ⚠️ UPDATE THIS PATH to where you cloned the repository
+    $sessionsPath = "$env:USERPROFILE\path\to\github-copilot-chat-exporter\sessions"
 
     if (-not (Test-Path $sessionsPath)) {
         Write-Host "❌ Sessions folder not found: $sessionsPath" -ForegroundColor Red
@@ -155,7 +155,7 @@ Set-Alias -Name Resume-Session -Value Resume-GitHubCopilotChat
 # Comment out if you don't want this feature
 
 if ($env:TERM_PROGRAM -eq "vscode" -or $env:VSCODE_GIT_IPC_HANDLE) {
-    $sessionsPath = "C:\Github\Personal\copilot-chat-exporter\sessions"
+    $sessionsPath = "$env:USERPROFILE\path\to\github-copilot-chat-exporter\sessions"
 
     if (Test-Path $sessionsPath) {
         $lastSession = Get-ChildItem -Path $sessionsPath -Filter "*.md" -File -Recurse |
