@@ -41,35 +41,66 @@ This project leverages the following open source tool:
 
 ## 🚀 Quick Start
 
-### 1. Clone or Download
+**Choose your installation method:**
+
+### Option 1: 🎯 Automated Installer (Recommended)
 
 ```powershell
 git clone https://github.com/zacharyluz/github-copilot-chat-exporter.git
 cd github-copilot-chat-exporter
-```
 
-### 2. Add Functions to PowerShell Profile
+# Preview what it will do (optional)
+.\Install-CopilotChatExporter.ps1 -WhatIf
 
-Edit your PowerShell profile:
+# Install
+.\Install-CopilotChatExporter.ps1
 
-```powershell
-notepad $PROFILE
-```
-
-Add the following:
-
-```powershell
-# Import Copilot Chat functions
-. "$env:USERPROFILE\path\to\github-copilot-chat-exporter\profile-functions.ps1"
-```
-
-Or copy the functions directly from [`profile-functions.ps1`](profile-functions.ps1) into your profile.
-
-### 3. Reload Profile
-
-```powershell
+# Reload profile
 . $PROFILE
 ```
+
+The installer automatically handles:
+- ✅ Prerequisite checks
+- ✅ Profile creation (if needed)
+- ✅ Path configuration
+- ✅ UTF-8 encoding fixes
+- ✅ Dependency downloads
+
+**See:** [QUICKSTART.md](QUICKSTART.md) for detailed setup guide
+
+### Option 2: 🏃 Standalone (No Installation)
+
+```powershell
+# No profile changes - just run directly
+.\Save-CopilotChat-Standalone.ps1
+```
+
+Perfect for testing or users who don't want profile modifications.
+
+### Option 3: 🔧 Manual Installation
+
+Add one line to your PowerShell profile:
+
+```powershell
+# Edit profile
+code $PROFILE
+
+# Add this line (update the path)
+. "C:\path\to\github-copilot-chat-exporter\profile-functions.ps1"
+
+# Reload
+. $PROFILE
+```
+
+**See:** [MANUAL-INSTALLATION.md](MANUAL-INSTALLATION.md) for advanced options
+
+### 📚 Documentation
+
+- **[QUICKSTART.md](QUICKSTART.md)** - Fast 5-minute setup
+- **[MANUAL-INSTALLATION.md](MANUAL-INSTALLATION.md)** - Full control for advanced users
+- **[PROFILE-CHANGES.md](PROFILE-CHANGES.md)** - What gets added to your profile
+- **[INSTALLATION-COMPARISON.md](INSTALLATION-COMPARISON.md)** - Compare all methods
+- **[INSTALL.md](INSTALL.md)** - Original detailed installation guide
 
 ### 4. Use It!
 
@@ -200,7 +231,18 @@ $Config = @{
 
 Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-## 🐛 Troubleshooting
+## � Troubleshooting
+
+**Having issues?** Run the diagnostic tool:
+
+```powershell
+.\Test-Installation.ps1
+
+# Or with automatic fixes
+.\Test-Installation.ps1 -Fix
+```
+
+### Common Issues
 
 ### Export automation doesn't work
 - Ensure VS Code is the active window
