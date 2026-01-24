@@ -1,7 +1,7 @@
 # GitHub Copilot Chat Exporter
 
-[![Author](https://img.shields.io/badge/Author-Zachary%20Luz-blue.svg)](https://github.com/zacharyluz)
-[![Version](https://img.shields.io/badge/Version-1.0.0-brightgreen.svg)](https://github.com/zacharyluz/github-copilot-chat-exporter/releases)
+[![Author](https://img.shields.io/badge/Author-Zachary%20Luz-blue.svg)](https://github.com/ZacharyLuz)
+[![Version](https://img.shields.io/badge/Version-1.0.0-brightgreen.svg)](https://github.com/ZacharyLuz/github-copilot-chat-exporter/releases)
 
 > **Automated export, conversion, and organization of GitHub Copilot chat sessions from VS Code**
 
@@ -46,7 +46,7 @@ This project leverages the following open source tool:
 ### Option 1: 🎯 Automated Installer (Recommended)
 
 ```powershell
-git clone https://github.com/zacharyluz/github-copilot-chat-exporter.git
+git clone https://github.com/ZacharyLuz/github-copilot-chat-exporter.git
 cd github-copilot-chat-exporter
 
 # Preview what it will do (optional)
@@ -231,7 +231,7 @@ $Config = @{
 
 Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-## � Troubleshooting
+## 🔧 Troubleshooting
 
 **Having issues?** Run the diagnostic tool:
 

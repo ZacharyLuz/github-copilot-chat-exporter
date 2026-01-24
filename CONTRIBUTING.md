@@ -14,7 +14,7 @@ Thank you for your interest in contributing! 🎉
 1. **Fork the repository** on GitHub
 2. **Clone your fork**:
    ```powershell
-   git clone https://github.com/YOUR-USERNAME/github-copilot-chat-exporter.git
+   git clone https://github.com/ZacharyLuz/github-copilot-chat-exporter.git
    cd github-copilot-chat-exporter
    ```
 3. **Create a branch** for your changes:

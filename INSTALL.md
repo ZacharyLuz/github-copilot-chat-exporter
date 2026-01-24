@@ -30,13 +30,13 @@ python --version
 ```powershell
 # Clone to your repos directory
 cd C:\repos
-git clone https://github.com/YOUR-USERNAME/github-copilot-chat-exporter.git
+git clone https://github.com/ZacharyLuz/github-copilot-chat-exporter.git
 cd github-copilot-chat-exporter
 ```
 
 ### Option B: Download ZIP
 
-1. Go to the [GitHub repository](https://github.com/YOUR-USERNAME/github-copilot-chat-exporter)
+1. Go to the [GitHub repository](https://github.com/ZacharyLuz/github-copilot-chat-exporter)
 2. Click **Code** → **Download ZIP**
 3. Extract to: `C:\repos\github-copilot-chat-exporter`
 
@@ -382,7 +382,7 @@ python --version
 ## Need Help?
 
 - 📝 [Full Documentation](README.md)
-- 🐛 [Report an Issue](https://github.com/YOUR-USERNAME/github-copilot-chat-exporter/issues)
-- 💬 [Discussions](https://github.com/YOUR-USERNAME/github-copilot-chat-exporter/discussions)
+- 🐛 [Report an Issue](https://github.com/ZacharyLuz/github-copilot-chat-exporter/issues)
+- 💬 [Discussions](https://github.com/ZacharyLuz/github-copilot-chat-exporter/discussions)
 
 **Happy chatting!** 🚀
