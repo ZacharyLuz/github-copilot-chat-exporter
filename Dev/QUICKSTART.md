@@ -35,16 +35,12 @@ The installer will:
 - ✅ Set up all the paths automatically
 - ✅ Fix any encoding issues
 - ✅ Download required components
-- ✅ **Automatically verify everything works**
 
-### Step 4: ~~Reload Your Profile~~ Done Automatically!
+### Step 4: Reload Your Profile
 
-The installer now **automatically reloads your profile and verifies** everything is working. You'll see:
-
-```
-╔══════════════════════════════════════════════════════════════╗
-║          🎉 Installation Verified Successfully!             ║
-╚══════════════════════════════════════════════════════════════╝
+```powershell
+# Just run this
+. $PROFILE
 ```
 
 ### Step 5: Use It!
@@ -80,18 +76,9 @@ No installation needed!
 **A:** Nope! It adds a clearly marked section you can remove anytime.
 
 ### Q: What if something goes wrong?
-**A:** The installer now has built-in verification. If it detects a problem, it will tell you exactly what to do. You can also:
-- Run the diagnostic tool: `.\Test-Installation.ps1 -Fix`
-- Use standalone mode (no installation needed): `.\Save-CopilotChat-Standalone.ps1`
-
-### Q: I'm getting "Script not found" or "path\to" errors?
-**A:** This means the installer didn't configure the paths correctly. Run:
+**A:** Use standalone mode - it works without any installation:
 ```powershell
-.\Install-CopilotChatExporter.ps1 -Force
-```
-Or use the diagnostic tool:
-```powershell
-.\Test-Installation.ps1 -Fix
+.\Save-CopilotChat-Standalone.ps1
 ```
 
 ### Q: Can I uninstall it?

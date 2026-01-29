@@ -1,15 +1,11 @@
 # PowerShell Profile Functions for GitHub Copilot Chat Exporter
-# Author: Zachary Luz
-# Version: 1.0.0
-# Release Date: January 2026
-#
 # Add these functions to your PowerShell profile ($PROFILE)
 
 # ============================================================================
 # OPTION 1: Source the script (Recommended)
 # ============================================================================
 # Place this in your $PROFILE to load all functions:
-# . "$env:USERPROFILE\path\to\github-copilot-chat-exporter\profile-functions.ps1"
+# . "$env:USERPROFILE\path\to\copilot-chat-exporter\profile-functions.ps1"
 
 # ============================================================================
 # OPTION 2: Copy these functions directly into your $PROFILE
@@ -51,29 +47,12 @@ function Save-GitHubCopilotChat {
         [string]$Topic
     )
 
-    # ⚠️ UPDATE THIS PATH to where you cloned the repository
-    $scriptPath = "$env:USERPROFILE\path\to\github-copilot-chat-exporter\Save-CopilotChat.ps1"
+    # Update this path to where you cloned the repository
+    $scriptPath = "$env:USERPROFILE\path\to\copilot-chat-exporter\Save-CopilotChat.ps1"
 
     if (-not (Test-Path $scriptPath)) {
-        Write-Host "" -ForegroundColor Red
-        Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Red
-        Write-Host "║  ❌ Installation Not Complete - Path Configuration Needed    ║" -ForegroundColor Red
-        Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Red
-        Write-Host ""
-        Write-Host "Script not found: $scriptPath" -ForegroundColor Yellow
-        Write-Host ""
-        Write-Host "🔧 Quick Fix Options:" -ForegroundColor Cyan
-        Write-Host ""
-        Write-Host "  Option 1: Re-run the installer (recommended)" -ForegroundColor White
-        Write-Host "    cd <your-repo-path>" -ForegroundColor Gray
-        Write-Host "    .\Install-CopilotChatExporter.ps1 -Force" -ForegroundColor Gray
-        Write-Host ""
-        Write-Host "  Option 2: Manual fix - edit your profile:" -ForegroundColor White
-        Write-Host "    code `$PROFILE" -ForegroundColor Gray
-        Write-Host "    Update the path to your actual repository location" -ForegroundColor Gray
-        Write-Host ""
-        Write-Host "📚 Need help? See: https://github.com/ZacharyLuz/github-copilot-chat-exporter" -ForegroundColor DarkGray
-        Write-Host ""
+        Write-Host "❌ Script not found: $scriptPath" -ForegroundColor Red
+        Write-Host "   Update the path in your profile function" -ForegroundColor Yellow
         return
     }
 
@@ -100,30 +79,13 @@ function Resume-GitHubCopilotChat {
         # Shows last 10 sessions and opens selected file
     #>
 
-    # ⚠️ UPDATE THIS PATH to where you cloned the repository
-    $sessionsPath = "$env:USERPROFILE\path\to\github-copilot-chat-exporter\sessions"
+    # Update this path to where you cloned the repository
+    $sessionsPath = "$env:USERPROFILE\path\to\copilot-chat-exporter\sessions"
 
     if (-not (Test-Path $sessionsPath)) {
-        # Check if this looks like a placeholder path (installation issue)
-        if ($sessionsPath -match 'path.*to.*copilot') {
-            Write-Host "" -ForegroundColor Red
-            Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Red
-            Write-Host "║  ❌ Installation Not Complete - Path Configuration Needed    ║" -ForegroundColor Red
-            Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Red
-            Write-Host ""
-            Write-Host "The installation did not complete properly." -ForegroundColor Yellow
-            Write-Host ""
-            Write-Host "🔧 Quick Fix: Re-run the installer" -ForegroundColor Cyan
-            Write-Host "    cd <your-repo-path>" -ForegroundColor Gray
-            Write-Host "    .\Install-CopilotChatExporter.ps1 -Force" -ForegroundColor Gray
-            Write-Host ""
-            Write-Host "📚 Need help? See: https://github.com/ZacharyLuz/github-copilot-chat-exporter" -ForegroundColor DarkGray
-            Write-Host ""
-        } else {
-            Write-Host "📭 Sessions folder not found: $sessionsPath" -ForegroundColor Yellow
-            Write-Host "   This folder will be created when you export your first chat." -ForegroundColor Gray
-            Write-Host "   Run: Save-GitHubChat" -ForegroundColor Cyan
-        }
+        Write-Host "❌ Sessions folder not found: $sessionsPath" -ForegroundColor Red
+        Write-Host "   Update the path in your profile function" -ForegroundColor Yellow
+        Write-Host "   Or export a chat first using: Save-GitHubChat" -ForegroundColor Gray
         return
     }
 
@@ -189,10 +151,9 @@ Set-Alias -Name Resume-Session -Value Resume-GitHubCopilotChat
 # Comment out if you don't want this feature
 
 if ($env:TERM_PROGRAM -eq "vscode" -or $env:VSCODE_GIT_IPC_HANDLE) {
-    $sessionsPath = "$env:USERPROFILE\path\to\github-copilot-chat-exporter\sessions"
+    $sessionsPath = "$env:USERPROFILE\path\to\copilot-chat-exporter\sessions"
 
-    # Skip the reminder if paths aren't configured (avoid confusing error on startup)
-    if ($sessionsPath -notmatch 'path.*to.*copilot' -and (Test-Path $sessionsPath)) {
+    if (Test-Path $sessionsPath) {
         $lastSession = Get-ChildItem -Path $sessionsPath -Filter "*.md" -File -Recurse |
             Sort-Object LastWriteTime -Descending |
             Select-Object -First 1
