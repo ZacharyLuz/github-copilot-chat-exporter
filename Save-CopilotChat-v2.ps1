@@ -378,6 +378,14 @@ function Read-CopilotChatSession {
 
             $session = $initEntry.v
 
+            # Accumulator: JSONL kind:2 patches targeting "requests" replace the
+            # array with only the current active request(s) (typically 1-2). Over a
+            # long session each request is serialized in its own kind:2 patch and
+            # then updated by kind:1 patches. Before each replacement we snapshot
+            # the fully-patched requests into this ordered dictionary keyed by
+            # requestId, preserving the complete conversation history.
+            $requestAccumulator = [ordered]@{}
+
             # Replay incremental patches (lines 1+)
             $patchCount = 0
             for ($i = 1; $i -lt $lines.Count; $i++) {
@@ -436,6 +444,17 @@ function Read-CopilotChatSession {
 
                 $lastKey = $keyPath[-1]
 
+                # Before replacing the requests array, snapshot current state
+                if ([int]$patch.kind -eq 2 -and $keyPath.Count -eq 1 -and $lastKey -eq 'requests') {
+                    if ($session.requests -is [array]) {
+                        foreach ($existingReq in $session.requests) {
+                            if ($existingReq.requestId) {
+                                $requestAccumulator[$existingReq.requestId] = $existingReq
+                            }
+                        }
+                    }
+                }
+
                 # Apply the patch
                 switch ([int]$patch.kind) {
                     1 {
@@ -486,7 +505,29 @@ function Read-CopilotChatSession {
                 }
             }
 
-            Write-ExporterLog -Level DEBUG -Message "JSONL replay: applied $patchCount patches"
+            # Final snapshot: capture the last set of requests after all patches
+            if ($session.requests -is [array]) {
+                foreach ($finalReq in $session.requests) {
+                    if ($finalReq.requestId) {
+                        $requestAccumulator[$finalReq.requestId] = $finalReq
+                    }
+                }
+            }
+
+            # Replace requests with full accumulated history
+            if ($requestAccumulator.Count -gt 0) {
+                $allRequests = @($requestAccumulator.Values)
+                # Sort by timestamp (ascending) to restore chronological order
+                $allRequests = $allRequests | Sort-Object {
+                    if ($_.timestamp) { [long]$_.timestamp } else { 0 }
+                }
+                $session.requests = $allRequests
+                Write-ExporterLog -Level DEBUG -Message "JSONL replay: accumulated $($allRequests.Count) unique requests from $patchCount patches"
+            }
+            else {
+                Write-ExporterLog -Level DEBUG -Message "JSONL replay: applied $patchCount patches (no request accumulation needed)"
+            }
+
             return $session
         }
         else {
