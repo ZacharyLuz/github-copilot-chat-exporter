@@ -599,25 +599,74 @@ function Get-SessionMetadata {
     try {
         $fileInfo = Get-Item $FilePath
 
+        # Variables for JSONL patch-derived metadata
+        $jsonlRequestCount = 0
+        $jsonlTitle = $null
+        $jsonlModel = $null
+
         if ($Format -eq 'jsonl') {
-            # Read only the first line (kind:0) for fast metadata extraction
-            $firstLine = [System.IO.File]::ReadLines($FilePath, [System.Text.Encoding]::UTF8) |
-                Select-Object -First 1
+            # JSONL format: kind:0 init line + incremental patches (kind:1/kind:2)
+            # kind:0 often has EMPTY requests array — requests are added via patches.
+            # Single-pass lightweight scan: parse kind:0, then string-match patches.
+            $session = $null
+            $lineIndex = 0
 
-            if ([string]::IsNullOrWhiteSpace($firstLine)) { return $null }
+            foreach ($line in [System.IO.File]::ReadLines($FilePath, [System.Text.Encoding]::UTF8)) {
+                if ($lineIndex -eq 0) {
+                    # First line: kind:0 initialization
+                    if ([string]::IsNullOrWhiteSpace($line)) { return $null }
+                    $init = $line | ConvertFrom-Json -Depth 20
+                    if ($init.kind -ne 0) { return $null }
+                    $session = $init.v
+                }
+                else {
+                    # Patch lines: use fast string matching (avoid parsing multi-MB JSON)
 
-            $init = $firstLine | ConvertFrom-Json -Depth 20
-            if ($init.kind -ne 0) { return $null }
-            $session = $init.v
+                    # kind:2 replacing the full "requests" array = a new request was added
+                    # Pattern: {"kind":2,"k":["requests"],"v":[...]}
+                    if ($line -match '"kind"\s*:\s*2\b' -and $line -match '"k"\s*:\s*\[\s*"requests"\s*\]') {
+                        $jsonlRequestCount++
+                        # Extract model from first request patch via regex
+                        if (-not $jsonlModel -and $jsonlRequestCount -eq 1) {
+                            if ($line -match '"modelId"\s*:\s*"([^"]+)"') {
+                                $jsonlModel = ($Matches[1] -replace '^copilot/', '')
+                            }
+                        }
+                    }
+                    # kind:1 setting customTitle
+                    elseif (-not $jsonlTitle -and $line -match '"kind"\s*:\s*1\b' -and $line -match '"k"\s*:\s*\[\s*"customTitle"\s*\]') {
+                        try {
+                            $titlePatch = $line | ConvertFrom-Json -Depth 5
+                            $jsonlTitle = [string]$titlePatch.v
+                        } catch {}
+                    }
+                }
+                $lineIndex++
+            }
+
+            if ($null -eq $session) { return $null }
+
+            # Apply patch-derived title to session object
+            if ($jsonlTitle) {
+                if ($session.PSObject.Properties['customTitle']) {
+                    $session.customTitle = $jsonlTitle
+                } else {
+                    $session | Add-Member -NotePropertyName 'customTitle' -NotePropertyValue $jsonlTitle -Force
+                }
+            }
         }
         else {
             $content = [System.IO.File]::ReadAllText($FilePath, [System.Text.Encoding]::UTF8)
             $session = $content | ConvertFrom-Json -Depth 20
         }
 
+        # Request count: use kind:0 data, override with JSONL patch count if needed
         $requestCount = 0
         if ($session.requests -is [array]) {
             $requestCount = $session.requests.Count
+        }
+        if ($Format -eq 'jsonl' -and $requestCount -eq 0 -and $jsonlRequestCount -gt 0) {
+            $requestCount = $jsonlRequestCount
         }
 
         $creationDate = [DateTime]::Now
@@ -625,12 +674,16 @@ function Get-SessionMetadata {
             $creationDate = [DateTimeOffset]::FromUnixTimeMilliseconds([long]$session.creationDate).LocalDateTime
         }
 
+        # Model: try kind:0 data first, then JSONL patch-derived
         $model = 'unknown'
         if ($session.inputState -and $session.inputState.selectedModel -and $session.inputState.selectedModel.identifier) {
             $model = ($session.inputState.selectedModel.identifier -replace '^copilot/', '')
         }
         elseif ($session.requests -and $session.requests.Count -gt 0 -and $session.requests[0].modelId) {
             $model = ($session.requests[0].modelId -replace '^copilot/', '')
+        }
+        if ($Format -eq 'jsonl' -and $model -eq 'unknown' -and $jsonlModel) {
+            $model = $jsonlModel
         }
 
         $title = ''
