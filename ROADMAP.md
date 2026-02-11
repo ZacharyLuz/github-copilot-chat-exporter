@@ -13,13 +13,16 @@ The complete rewrite. Reads chat sessions directly from VS Code's on-disk storag
 - [x] Auto-detect VS Code editions (stable + Insiders)
 - [x] Smart topic extraction (customTitle → param → keyword extraction)
 - [x] Mandatory secret scanning with R/C gate
-- [x] Session picker: auto-latest with confirm + paginated list
+- [x] Session picker: auto-latest (automated) + paginated list (`-List`)
 - [x] YYYY-MM subfolder organization with dual INDEX (md + json)
 - [x] Workspace symlinks (`.copilot-chats/`)
 - [x] Full catalog crawl mode
 - [x] Structured logging with daily rotation
 - [x] SendKeys as opt-in fallback
 - [x] Config file support (`%LOCALAPPDATA%\CopilotChatExporter\config.json`)
+
+### Planned
+- [ ] **Incremental append** — detect prior export of same session, append only new turns instead of creating `_2`, `_3` duplicates. Track last-exported request ID/timestamp per session in the index.
 
 ### Migration from v1
 - Profile wrapper updated to call v2 script
@@ -28,7 +31,25 @@ The complete rewrite. Reads chat sessions directly from VS Code's on-disk storag
 
 ---
 
-## v2.1.0 — PowerShell Module
+## v2.1.0 — Chat Catalog Tool
+
+**Status:** Planned  
+**Target:** Q1 2026
+
+Break the `-List` session browser out into a standalone tool for cataloging and managing all past chat sessions.
+
+### Planned Features
+- [ ] Standalone `Get-CopilotChatCatalog` cmdlet (separate from export)
+- [ ] Browse, search, filter all historical sessions (by date, topic, model, workspace)
+- [ ] Bulk export: select ranges or filter criteria, export in batch
+- [ ] Session stats: total sessions, turns per session, model usage, activity heatmap
+- [ ] Mark sessions as exported/archived/favorites
+- [ ] Persistent catalog index (avoid re-scanning JSONL on every invocation)
+- [ ] Output formats: table (default), JSON, CSV for analysis
+
+---
+
+## v2.2.0 — PowerShell Module
 
 **Status:** Planned  
 **Target:** Q2 2026
@@ -45,7 +66,7 @@ Convert from standalone script to proper PowerShell module with manifest, export
 
 ---
 
-## v2.2.0 — Installation UX
+## v2.3.0 — Installation UX
 
 **Status:** Planned  
 **Target:** Q3 2026
