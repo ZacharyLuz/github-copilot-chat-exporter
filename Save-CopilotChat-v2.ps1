@@ -998,6 +998,41 @@ function Convert-ResponsePart {
     }
 }
 
+function Get-VSCodeCommand {
+    <#
+    .SYNOPSIS
+        Returns the correct VS Code CLI command based on which edition is running.
+    #>
+    [CmdletBinding()]
+    param()
+
+    # Check for running processes first
+    if (Get-Process -Name 'Code - Insiders' -ErrorAction SilentlyContinue) {
+        return 'code-insiders'
+    }
+    if (Get-Process -Name 'Code' -ErrorAction SilentlyContinue) {
+        return 'code'
+    }
+
+    # Check TERM_PROGRAM env var (set when running inside VS Code terminal)
+    if ($env:TERM_PROGRAM -eq 'vscode') {
+        # Detect insiders from the CLI path or GIT IPC handle
+        if ($env:VSCODE_GIT_IPC_HANDLE -match 'insiders') {
+            return 'code-insiders'
+        }
+        # Check if code-insiders is on PATH
+        if (Get-Command 'code-insiders' -ErrorAction SilentlyContinue) {
+            return 'code-insiders'
+        }
+    }
+
+    # Default fallback
+    if (Get-Command 'code-insiders' -ErrorAction SilentlyContinue) {
+        return 'code-insiders'
+    }
+    return 'code'
+}
+
 function Remove-OrphanSurrogates {
     [CmdletBinding()]
     param(
@@ -1947,8 +1982,9 @@ if ($UseSendKeys) {
         Set-Content -Path $outputPath -Value $gateResult.Content -Encoding UTF8
 
         Write-Host "  Saved: $outputPath" -ForegroundColor Green
-        $open = Read-Host '  Open in VS Code? [Y/n]'
-        if ($open -eq '' -or $open -match '^[Yy]') { code $outputPath }
+        $vsCmd = Get-VSCodeCommand
+        $open = Read-Host "  Open in $vsCmd? [Y/n]"
+        if ($open -eq '' -or $open -match '^[Yy]') { & $vsCmd $outputPath }
     }
     catch {
         Write-ExporterLog -Level ERROR -Message "SendKeys export failed: $_" -ErrorRecord $_
@@ -2026,8 +2062,9 @@ if ($exported.Count -gt 0) {
 
     if ($exported.Count -eq 1) {
         Write-Host "  Location: $($exported[0])" -ForegroundColor Gray
-        $open = Read-Host '  Open in VS Code? [Y/n]'
-        if ($open -eq '' -or $open -match '^[Yy]') { code $exported[0] }
+        $vsCmd = Get-VSCodeCommand
+        $open = Read-Host "  Open in $vsCmd? [Y/n]"
+        if ($open -eq '' -or $open -match '^[Yy]') { & $vsCmd $exported[0] }
     }
     else {
         Write-Host "  Location: $($script:ActiveConfig.SessionsBasePath)" -ForegroundColor Gray
