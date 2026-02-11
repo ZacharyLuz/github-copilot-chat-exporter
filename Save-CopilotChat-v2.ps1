@@ -1467,22 +1467,17 @@ function Select-ChatSession {
     }
 
     if (-not $ShowList) {
-        # Auto-select latest
+        # Auto-select latest — fully automated, no prompts
         $latest = $Sessions[0]
         $dateStr = $latest.CreationDate.ToString('yyyy-MM-dd HH:mm')
         $title = if ($latest.Title) { $latest.Title } else { '(untitled)' }
         $model = $latest.Model
 
         Write-Host ''
-        Write-Host "  Export: `"$title`"" -ForegroundColor Cyan
+        Write-Host "  Exporting: `"$title`"" -ForegroundColor Cyan
         Write-Host "  ($dateStr, $model, $($latest.RequestCount) turns, $($latest.WorkspacePath))" -ForegroundColor Gray
-        Write-Host ''
 
-        $confirm = Read-Host '  Proceed? [Y/n]'
-        if ($confirm -eq '' -or $confirm -match '^[Yy]') {
-            return @($latest)
-        }
-        # Fall through to list view
+        return @($latest)
     }
 
     # Paginated list view
@@ -1498,19 +1493,19 @@ function Select-ChatSession {
         Write-Host ''
         Write-Host "  === Recent Sessions (Page $($currentPage + 1) of $totalPages) ===" -ForegroundColor Cyan
         Write-Host ''
-        Write-Host ('  {0,-4} {1,-12} {2,-30} {3,-15} {4}' -f '#', 'Date', 'Topic', 'Model', 'Turns') -ForegroundColor DarkGray
-        Write-Host ('  {0}' -f ('-' * 75)) -ForegroundColor DarkGray
+        Write-Host ('  {0,-4} {1,-12} {2,-45} {3,-20} {4}' -f '#', 'Date', 'Topic', 'Model', 'Turns') -ForegroundColor DarkGray
+        Write-Host ('  {0}' -f ('-' * 90)) -ForegroundColor DarkGray
 
         for ($i = $startIdx; $i -le $endIdx; $i++) {
             $s = $Sessions[$i]
             $num = $i + 1
             $date = $s.CreationDate.ToString('yyyy-MM-dd')
             $title = if ($s.Title) { $s.Title } else { '(untitled)' }
-            if ($title.Length -gt 28) { $title = $title.Substring(0, 25) + '...' }
+            if ($title.Length -gt 43) { $title = $title.Substring(0, 40) + '...' }
             $model = $s.Model
-            if ($model.Length -gt 13) { $model = $model.Substring(0, 10) + '...' }
+            if ($model.Length -gt 18) { $model = $model.Substring(0, 15) + '...' }
 
-            Write-Host ('  {0,-4} {1,-12} {2,-30} {3,-15} {4}' -f $num, $date, $title, $model, $s.RequestCount)
+            Write-Host ('  {0,-4} {1,-12} {2,-45} {3,-20} {4}' -f $num, $date, $title, $model, $s.RequestCount)
         }
 
         Write-Host ''
