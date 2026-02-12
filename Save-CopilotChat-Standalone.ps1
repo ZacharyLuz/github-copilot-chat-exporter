@@ -80,7 +80,7 @@ function Write-ColorHost {
     }
 }
 
-function Test-Prerequisites {
+function Test-Prerequisite {
     Write-ColorHost "`n📋 Checking prerequisites..." "Yellow"
 
     # Check PowerShell version
@@ -138,6 +138,7 @@ function Get-ConverterScript {
 }
 
 function Start-VsCodeExport {
+    [CmdletBinding(SupportsShouldProcess)]
     param($JsonFullPath)
 
     Write-ColorHost "🚀 Triggering export in VS Code..." "Yellow"
@@ -325,7 +326,7 @@ Write-ColorHost "║     GitHub Copilot Chat Exporter (Standalone Mode)         
 Write-ColorHost "╚══════════════════════════════════════════════════════════════╝" "Cyan"
 
 # Check prerequisites
-if (-not (Test-Prerequisites)) {
+if (-not (Test-Prerequisite)) {
     exit 1
 }
 
@@ -370,7 +371,7 @@ $jsonFilename = "$($Config.JsonFilePrefix)-${date}_${timestamp}.json"
 $jsonFullPath = Join-Path $scriptDir $jsonFilename
 
 # Trigger export in VS Code
-$autoExported = Start-VsCodeExport -JsonFullPath $jsonFullPath
+$null = Start-VsCodeExport -JsonFullPath $jsonFullPath
 
 # Wait for file
 $fileReceived = Wait-ForExportFile -JsonFullPath $jsonFullPath -Timeout $Config.FileWatchTimeout
