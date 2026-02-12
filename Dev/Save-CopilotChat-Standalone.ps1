@@ -53,11 +53,8 @@ $Config = @{
     TimestampFormat      = "HHmmss"
     TopicMaxLength       = 50
     JsonFilePrefix       = "CHAT-EXPORT"
-    # Converter settings (pinned to specific commit for supply chain security)
-    # Source: https://github.com/peckjon/copilot-chat-to-markdown
     ConverterFileName    = "chat_to_markdown.py"
-    ConverterCommit      = "2af92df35aa0b06836e80ce1df55662f00b80dca"
-    ConverterUrl         = "https://raw.githubusercontent.com/peckjon/copilot-chat-to-markdown/2af92df35aa0b06836e80ce1df55662f00b80dca/chat_to_markdown.py"
+    ConverterUrl         = "https://raw.githubusercontent.com/peckjon/copilot-chat-to-markdown/main/chat_to_markdown.py"
     FileWatchTimeout     = 300
     FileWatchInterval    = 2
     StatusUpdateInterval = 10
@@ -80,7 +77,7 @@ function Write-ColorHost {
     }
 }
 
-function Test-Prerequisite {
+function Test-Prerequisites {
     Write-ColorHost "`n📋 Checking prerequisites..." "Yellow"
 
     # Check PowerShell version
@@ -138,7 +135,6 @@ function Get-ConverterScript {
 }
 
 function Start-VsCodeExport {
-    [CmdletBinding(SupportsShouldProcess)]
     param($JsonFullPath)
 
     Write-ColorHost "🚀 Triggering export in VS Code..." "Yellow"
@@ -326,7 +322,7 @@ Write-ColorHost "║     GitHub Copilot Chat Exporter (Standalone Mode)         
 Write-ColorHost "╚══════════════════════════════════════════════════════════════╝" "Cyan"
 
 # Check prerequisites
-if (-not (Test-Prerequisite)) {
+if (-not (Test-Prerequisites)) {
     exit 1
 }
 
@@ -371,7 +367,7 @@ $jsonFilename = "$($Config.JsonFilePrefix)-${date}_${timestamp}.json"
 $jsonFullPath = Join-Path $scriptDir $jsonFilename
 
 # Trigger export in VS Code
-$null = Start-VsCodeExport -JsonFullPath $jsonFullPath
+$autoExported = Start-VsCodeExport -JsonFullPath $jsonFullPath
 
 # Wait for file
 $fileReceived = Wait-ForExportFile -JsonFullPath $jsonFullPath -Timeout $Config.FileWatchTimeout

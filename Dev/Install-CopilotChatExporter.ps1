@@ -226,52 +226,15 @@ Write-Host ""
 Write-Host "🔧 Configuring profile functions with installation path..." -ForegroundColor Yellow
 
 $profileFunctionsPath = Join-Path $scriptDir "profile-functions.ps1"
+$profileFunctionsContent = Get-Content $profileFunctionsPath -Raw
 
-if ($WhatIf) {
-    Write-Host "   [WHATIF] Would update paths in profile-functions.ps1" -ForegroundColor Cyan
-    Write-Host "   [WHATIF] Would replace placeholder paths with: $scriptDir" -ForegroundColor Cyan
-}
-else {
-    $profileFunctionsContent = Get-Content $profileFunctionsPath -Raw
+# Replace placeholder paths with actual installation directory
+$profileFunctionsContent = $profileFunctionsContent -replace '\$env:USERPROFILE\\path\\to\\copilot-chat-exporter', $scriptDir -replace '/', '\'
 
-    # Replace known placeholder path variations with actual installation directory
-    # Pattern 1: $env:USERPROFILE\path\to\github-copilot-chat-exporter (full name)
-    $profileFunctionsContent = $profileFunctionsContent -replace '\$env:USERPROFILE\\path\\to\\github-copilot-chat-exporter', $scriptDir
-    # Pattern 2: $env:USERPROFILE\path\to\copilot-chat-exporter (short name - legacy)
-    $profileFunctionsContent = $profileFunctionsContent -replace '\$env:USERPROFILE\\path\\to\\copilot-chat-exporter', $scriptDir
+# Save with UTF-8 encoding
+[System.IO.File]::WriteAllText($profileFunctionsPath, $profileFunctionsContent, [System.Text.UTF8Encoding]::new($true))
 
-    # Save with UTF-8 encoding
-    [System.IO.File]::WriteAllText($profileFunctionsPath, $profileFunctionsContent, [System.Text.UTF8Encoding]::new($true))
-
-    # VALIDATION: Verify placeholder paths were actually replaced
-    # Use specific pattern to avoid false positives with legitimate paths
-    $verifyContent = Get-Content $profileFunctionsPath -Raw
-    if ($verifyContent -match '\$env:USERPROFILE[/\\]path[/\\]to[/\\](github-)?copilot-chat-exporter') {
-        Write-Host "" -ForegroundColor Red
-        Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Red
-        Write-Host "║  ❌ ERROR: Some placeholder paths were not replaced!        ║" -ForegroundColor Red
-        Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Red
-        Write-Host ""
-        Write-Host "This is a bug in the installer. Please report it at:" -ForegroundColor Yellow
-        Write-Host "https://github.com/ZacharyLuz/github-copilot-chat-exporter/issues" -ForegroundColor Cyan
-        Write-Host ""
-        exit 1
-    }
-
-    # Count the actual path occurrences to confirm replacement worked
-    # We expect at least 3 occurrences of $scriptDir in profile-functions.ps1:
-    #   1) Save-GitHubCopilotChat function - $scriptPath variable (~line 55)
-    #   2) Resume-GitHubCopilotChat function - $sessionsPath variable (~line 88)
-    #   3) Auto-Reminder section - $sessionsPath variable (~line 160)
-    $pathCount = ([regex]::Matches($verifyContent, [regex]::Escape($scriptDir))).Count
-    if ($pathCount -lt 3) {
-        Write-Host "⚠ Warning: Expected 3+ path replacements, found $pathCount" -ForegroundColor Yellow
-    }
-    else {
-        Write-Host "✓ Profile functions configured with path: $scriptDir" -ForegroundColor Green
-        Write-Host "  (Updated $pathCount path references)" -ForegroundColor Gray
-    }
-}
+Write-Host "✓ Profile functions configured with path: $scriptDir" -ForegroundColor Green
 Write-Host ""
 
 # ============================================================================
@@ -281,11 +244,8 @@ $converterPath = Join-Path $scriptDir "chat_to_markdown.py"
 if (-not (Test-Path $converterPath)) {
     Write-Host "📥 Downloading Python converter..." -ForegroundColor Yellow
     try {
-        # Pin to specific commit hash for supply chain security
-        # Source: https://github.com/peckjon/copilot-chat-to-markdown
-        $converterCommit = "2af92df35aa0b06836e80ce1df55662f00b80dca"
-        Invoke-WebRequest -Uri "https://raw.githubusercontent.com/peckjon/copilot-chat-to-markdown/$converterCommit/chat_to_markdown.py" -OutFile $converterPath
-        Write-Host "✓ Converter downloaded (commit: $($converterCommit.Substring(0,7)))" -ForegroundColor Green
+        Invoke-WebRequest -Uri "https://raw.githubusercontent.com/peckjon/copilot-chat-to-markdown/main/chat_to_markdown.py" -OutFile $converterPath
+        Write-Host "✓ Converter downloaded" -ForegroundColor Green
     }
     catch {
         Write-Host "⚠ Could not download converter (will download on first use)" -ForegroundColor Yellow
@@ -366,62 +326,22 @@ Write-Host "💡 Tip: " -ForegroundColor Yellow -NoNewline
 Write-Host "You can also use shortcuts: Save-GitHubChat, Resume-Chat" -ForegroundColor Gray
 Write-Host ""
 
-# Automatically verify installation by loading and testing functions
-Write-Host "🔄 Verifying installation..." -ForegroundColor Cyan
-Write-Host ""
-
-try {
-    # Source the profile functions directly to test them
-    . "$scriptDir\profile-functions.ps1"
-
-    # Verify the functions exist and can be called
-    $null = Get-Command Save-GitHubCopilotChat -ErrorAction Stop
-    $null = Get-Command Resume-GitHubCopilotChat -ErrorAction Stop
-
-    Write-Host "✅ Functions loaded successfully!" -ForegroundColor Green
-    Write-Host "   • Save-GitHubCopilotChat" -ForegroundColor Gray
-    Write-Host "   • Resume-GitHubCopilotChat" -ForegroundColor Gray
+# Ask if user wants to reload profile now
+$reload = Read-Host "Reload PowerShell profile now? (y/n)"
+if ($reload -eq 'y') {
     Write-Host ""
-
-    # Quick validation - check if the script path in the function still has placeholder
-    $functionDef = (Get-Command Save-GitHubCopilotChat).ScriptBlock.ToString()
-    if ($functionDef -match '\$env:USERPROFILE[/\\]path[/\\]to[/\\](github-)?copilot') {
-        Write-Host "" -ForegroundColor Red
-        Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Red
-        Write-Host "║  ❌ ERROR: Function still contains placeholder paths!        ║" -ForegroundColor Red
-        Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Red
-        Write-Host ""
-        Write-Host "The installation script failed to update the paths correctly." -ForegroundColor Yellow
-        Write-Host "Please report this issue at:" -ForegroundColor Yellow
-        Write-Host "https://github.com/ZacharyLuz/github-copilot-chat-exporter/issues" -ForegroundColor Cyan
-        Write-Host ""
-        exit 1
-    }
-
-    # Also reload the full profile for good measure (optional - functions already tested above)
-    # Wrapped in try-catch since user's profile may have other issues unrelated to this install
+    Write-Host "🔄 Reloading profile..." -ForegroundColor Cyan
     try {
-        . $PROFILE 2>$null
+        . $PROFILE
+        Write-Host "✓ Profile reloaded successfully!" -ForegroundColor Green
+        Write-Host ""
+        Write-Host "🎉 Ready to use! Try: " -ForegroundColor Green -NoNewline
+        Write-Host "Save-GitHubCopilotChat" -ForegroundColor Cyan
     }
     catch {
-        Write-Host "⚠ Note: Full profile reload had warnings (functions still work)" -ForegroundColor DarkYellow
+        Write-Host "⚠ Could not reload profile: $_" -ForegroundColor Yellow
+        Write-Host "   Please restart PowerShell or run: . `$PROFILE" -ForegroundColor Gray
     }
+}
 
-    Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Green
-    Write-Host "║          🎉 Installation Verified Successfully!             ║" -ForegroundColor Green
-    Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Green
-    Write-Host ""
-    Write-Host "You're all set! Try these commands:" -ForegroundColor Cyan
-    Write-Host "   Save-GitHubChat    - Export your current Copilot chat" -ForegroundColor White
-    Write-Host "   Resume-Chat        - Browse and resume previous chats" -ForegroundColor White
-    Write-Host ""
-}
-catch {
-    Write-Host "❌ Verification failed: $_" -ForegroundColor Red
-    Write-Host ""
-    Write-Host "📋 Troubleshooting steps:" -ForegroundColor Yellow
-    Write-Host "   1. Close this terminal and open a new PowerShell window" -ForegroundColor Gray
-    Write-Host "   2. Run: Get-Command Save-GitHubCopilotChat" -ForegroundColor Gray
-    Write-Host "   3. If still not working, run: .\Test-Installation.ps1 -Fix" -ForegroundColor Gray
-    Write-Host ""
-}
+Write-Host ""

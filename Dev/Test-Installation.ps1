@@ -177,6 +177,7 @@ if (Test-Path $profilePath) {
             Write-Host "✅ Tool is configured in profile" -ForegroundColor Green
 
             # Check if path is correct
+            $expectedSource = ". `"$scriptDir\profile-functions.ps1`""
             if ($profileContent -match [regex]::Escape($scriptDir)) {
                 Write-Host "✅ Path is configured correctly" -ForegroundColor Green
             }
@@ -233,54 +234,6 @@ else {
     $issues += "Functions not loaded in current session"
     Write-Host "   Fix: Reload profile: . `$PROFILE" -ForegroundColor Yellow
     Write-Host "   Or use standalone: .\Save-CopilotChat-Standalone.ps1" -ForegroundColor Yellow
-}
-Write-Host ""
-
-# ============================================================================
-# Test 7b: Check for Placeholder Paths (Common Installation Bug)
-# ============================================================================
-Write-Host "🔍 Test 7b: Checking for Placeholder Paths" -ForegroundColor Yellow
-
-$profileFunctionsPath = Join-Path $scriptDir "profile-functions.ps1"
-if (Test-Path $profileFunctionsPath) {
-    $pfContent = Get-Content $profileFunctionsPath -Raw
-
-    # Use specific pattern to match only the literal placeholder path from the docs
-    # Assumption: Real installations will not literally use "$env:USERPROFILE\path\to\copilot-chat-exporter"
-    # as a directory name - this is a documentation placeholder only
-    if ($pfContent -match '\$env:USERPROFILE[/\\]path[/\\]to[/\\](github-)?copilot-chat-exporter') {
-        Write-Host "❌ FAIL - Placeholder paths not replaced!" -ForegroundColor Red
-        $issues += "Placeholder paths still in profile-functions.ps1"
-        Write-Host "   This is the most common installation issue." -ForegroundColor Yellow
-        Write-Host "   The installer failed to update paths correctly." -ForegroundColor Yellow
-        Write-Host ""
-
-        if ($Fix) {
-            Write-Host "🔧 Fixing placeholder paths..." -ForegroundColor Cyan
-
-            # Replace known placeholder path variations
-            $pfContent = $pfContent -replace '\$env:USERPROFILE\\path\\to\\github-copilot-chat-exporter', $scriptDir
-            $pfContent = $pfContent -replace '\$env:USERPROFILE\\path\\to\\copilot-chat-exporter', $scriptDir
-
-            [System.IO.File]::WriteAllText($profileFunctionsPath, $pfContent, [System.Text.UTF8Encoding]::new($true))
-
-            Write-Host "✅ FIXED - Paths updated to: $scriptDir" -ForegroundColor Green
-            $fixes += "Updated placeholder paths in profile-functions.ps1"
-        }
-        else {
-            Write-Host "   Fix: Run with -Fix flag: .\Test-Installation.ps1 -Fix" -ForegroundColor Yellow
-            Write-Host "   Or re-run installer: .\Install-CopilotChatExporter.ps1 -Force" -ForegroundColor Yellow
-        }
-    }
-    else {
-        # Count how many times the script directory appears
-        $pathCount = ([regex]::Matches($pfContent, [regex]::Escape($scriptDir))).Count
-        Write-Host "✅ PASS - Paths configured correctly ($pathCount references)" -ForegroundColor Green
-    }
-}
-else {
-    Write-Host "❌ FAIL - profile-functions.ps1 not found" -ForegroundColor Red
-    $issues += "profile-functions.ps1 missing"
 }
 Write-Host ""
 

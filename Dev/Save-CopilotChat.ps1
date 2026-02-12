@@ -20,10 +20,6 @@
     # Direct execution with topic specified
 
 .NOTES
-    Author: Zachary Luz
-    Version: 1.0.0
-    Release Date: January 2026
-
     Requires: Python 3.6+
     Auto-downloads: https://github.com/peckjon/copilot-chat-to-markdown
 
@@ -58,11 +54,9 @@ $Config = @{
     # File naming
     JsonFilePrefix       = "CHAT-EXPORT"
 
-    # Converter settings (pinned to specific commit for supply chain security)
-    # Source: https://github.com/peckjon/copilot-chat-to-markdown
+    # Converter settings
     ConverterFileName    = "chat_to_markdown.py"
-    ConverterCommit      = "2af92df35aa0b06836e80ce1df55662f00b80dca"
-    ConverterUrl         = "https://raw.githubusercontent.com/peckjon/copilot-chat-to-markdown/2af92df35aa0b06836e80ce1df55662f00b80dca/chat_to_markdown.py"
+    ConverterUrl         = "https://raw.githubusercontent.com/peckjon/copilot-chat-to-markdown/main/chat_to_markdown.py"
 
     # Timeouts (seconds)
     FileWatchTimeout     = 300  # 5 minutes

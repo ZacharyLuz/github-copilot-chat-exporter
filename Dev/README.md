@@ -1,8 +1,5 @@
 # GitHub Copilot Chat Exporter
 
-[![Author](https://img.shields.io/badge/Author-Zachary%20Luz-blue.svg)](https://github.com/zacharyluz)
-[![Version](https://img.shields.io/badge/Version-1.0.0-brightgreen.svg)](https://github.com/zacharyluz/github-copilot-chat-exporter/releases)
-
 > **Automated export, conversion, and organization of GitHub Copilot chat sessions from VS Code**
 
 [![PowerShell](https://img.shields.io/badge/PowerShell-7%2B-blue.svg)](https://github.com/PowerShell/PowerShell)
@@ -30,77 +27,37 @@ Never lose context between coding sessions! This tool provides a fully automated
 - **Python 3.6+** ([Install](https://www.python.org/downloads/))
 - **VS Code** with GitHub Copilot extension
 
-## 📦 Dependencies
-
-This project leverages the following open source tool:
-
-- **[peckjon/copilot-chat-to-markdown](https://github.com/peckjon/copilot-chat-to-markdown)** (MIT License)
-  - Converts GitHub Copilot chat JSON exports to formatted Markdown
-  - Automatically downloaded on first run
-  - Credit to [@peckjon](https://github.com/peckjon) for the excellent converter
-
 ## 🚀 Quick Start
 
-**Choose your installation method:**
-
-### Option 1: 🎯 Automated Installer (Recommended)
+### 1. Clone or Download
 
 ```powershell
-git clone https://github.com/zacharyluz/github-copilot-chat-exporter.git
-cd github-copilot-chat-exporter
+git clone https://github.com/YOUR-USERNAME/copilot-chat-exporter.git
+cd copilot-chat-exporter
+```
 
-# Preview what it will do (optional)
-.\Install-CopilotChatExporter.ps1 -WhatIf
+### 2. Add Functions to PowerShell Profile
 
-# Install
-.\Install-CopilotChatExporter.ps1
+Edit your PowerShell profile:
 
-# Reload profile
+```powershell
+notepad $PROFILE
+```
+
+Add the following:
+
+```powershell
+# Import Copilot Chat functions
+. "$env:USERPROFILE\path\to\copilot-chat-exporter\profile-functions.ps1"
+```
+
+Or copy the functions directly from [`profile-functions.ps1`](profile-functions.ps1) into your profile.
+
+### 3. Reload Profile
+
+```powershell
 . $PROFILE
 ```
-
-The installer automatically handles:
-- ✅ Prerequisite checks
-- ✅ Profile creation (if needed)
-- ✅ Path configuration
-- ✅ UTF-8 encoding fixes
-- ✅ Dependency downloads
-
-**See:** [QUICKSTART.md](QUICKSTART.md) for detailed setup guide
-
-### Option 2: 🏃 Standalone (No Installation)
-
-```powershell
-# No profile changes - just run directly
-.\Save-CopilotChat-Standalone.ps1
-```
-
-Perfect for testing or users who don't want profile modifications.
-
-### Option 3: 🔧 Manual Installation
-
-Add one line to your PowerShell profile:
-
-```powershell
-# Edit profile
-code $PROFILE
-
-# Add this line (update the path)
-. "C:\path\to\github-copilot-chat-exporter\profile-functions.ps1"
-
-# Reload
-. $PROFILE
-```
-
-**See:** [MANUAL-INSTALLATION.md](MANUAL-INSTALLATION.md) for advanced options
-
-### 📚 Documentation
-
-- **[QUICKSTART.md](QUICKSTART.md)** - Fast 5-minute setup
-- **[MANUAL-INSTALLATION.md](MANUAL-INSTALLATION.md)** - Full control for advanced users
-- **[PROFILE-CHANGES.md](PROFILE-CHANGES.md)** - What gets added to your profile
-- **[INSTALLATION-COMPARISON.md](INSTALLATION-COMPARISON.md)** - Compare all methods
-- **[INSTALL.md](INSTALL.md)** - Original detailed installation guide
 
 ### 4. Use It!
 
@@ -168,7 +125,7 @@ Select a session (0-10): _
 ## 📁 Output Structure
 
 ```
-github-copilot-chat-exporter/
+copilot-chat-exporter/
 ├── Save-CopilotChat.ps1          # Main automation script
 ├── profile-functions.ps1          # Functions to add to $PROFILE
 ├── chat_to_markdown.py            # Converter (auto-downloaded)
@@ -233,30 +190,6 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines
 
 ## 🐛 Troubleshooting
 
-**Having issues?** Run the diagnostic tool:
-
-```powershell
-.\Test-Installation.ps1
-
-# Or with automatic fixes
-.\Test-Installation.ps1 -Fix
-```
-
-### Common Issues
-
-### "Script not found" or "path\to" errors
-This is the most common issue - it means the installer didn't configure the paths correctly.
-
-**Quick Fix:**
-```powershell
-.\Install-CopilotChatExporter.ps1 -Force
-```
-
-Or use the diagnostic tool:
-```powershell
-.\Test-Installation.ps1 -Fix
-```
-
 ### Export automation doesn't work
 - Ensure VS Code is the active window
 - Try manual export: `F1` → "Chat: Export Chat"
@@ -287,10 +220,8 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## 🙏 Credits
 
-- **JSON to Markdown Converter**: [peckjon/copilot-chat-to-markdown](https://github.com/peckjon/copilot-chat-to-markdown)
-  - This project would not be possible without peckjon's excellent conversion tool
-  - See the [📦 Dependencies](#-dependencies) section for details
-- **Inspiration**: The need to maintain context across ADHD-friendly coding sessions
+- JSON to Markdown converter: [peckjon/copilot-chat-to-markdown](https://github.com/peckjon/copilot-chat-to-markdown)
+- Inspired by the need to maintain context across ADHD-friendly coding sessions
 
 ## 🔗 Related
 
