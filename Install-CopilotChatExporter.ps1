@@ -375,8 +375,8 @@ try {
     . "$scriptDir\profile-functions.ps1"
 
     # Verify the functions exist and can be called
-    $saveCmd = Get-Command Save-GitHubCopilotChat -ErrorAction Stop
-    $resumeCmd = Get-Command Resume-GitHubCopilotChat -ErrorAction Stop
+    $null = Get-Command Save-GitHubCopilotChat -ErrorAction Stop
+    $null = Get-Command Resume-GitHubCopilotChat -ErrorAction Stop
 
     Write-Host "✅ Functions loaded successfully!" -ForegroundColor Green
     Write-Host "   • Save-GitHubCopilotChat" -ForegroundColor Gray
