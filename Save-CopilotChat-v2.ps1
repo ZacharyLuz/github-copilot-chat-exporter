@@ -615,8 +615,9 @@ function Get-AllChatSessions {
         }
     }
 
-    # Sort by creation date descending (newest first)
-    $allSessions = $allSessions | Sort-Object -Property CreationDate -Descending
+    # Sort by last modified time descending (most recently active first)
+    # CreationDate is when the session started; LastModified reflects ongoing activity
+    $allSessions = $allSessions | Sort-Object -Property LastModified -Descending
 
     Write-ExporterLog -Level INFO -Message "Session scan: found $($allSessions.Count) non-empty session(s) across $($SystemPaths.VSCodeEditions.Count) edition(s)"
     return $allSessions
@@ -701,12 +702,14 @@ function Get-SessionMetadata {
             $session = $content | ConvertFrom-Json -Depth 20
         }
 
-        # Request count: use kind:0 data, override with JSONL patch count if needed
+        # Request count: use kind:0 data, override with JSONL patch count if larger
+        # (Sessions with conversation summaries compact the requests array but
+        # the JSONL patches record the true number of user turns)
         $requestCount = 0
         if ($session.requests -is [array]) {
             $requestCount = $session.requests.Count
         }
-        if ($Format -eq 'jsonl' -and $requestCount -eq 0 -and $jsonlRequestCount -gt 0) {
+        if ($Format -eq 'jsonl' -and $jsonlRequestCount -gt $requestCount) {
             $requestCount = $jsonlRequestCount
         }
 
@@ -753,6 +756,7 @@ function Get-SessionMetadata {
             SessionId    = $sessionId
             Title        = $title
             CreationDate = $creationDate
+            LastModified = $fileInfo.LastWriteTime
             Model        = $model
             RequestCount = $requestCount
             Edition      = $Edition
@@ -1499,7 +1503,7 @@ function Select-ChatSession {
         for ($i = $startIdx; $i -le $endIdx; $i++) {
             $s = $Sessions[$i]
             $num = $i + 1
-            $date = $s.CreationDate.ToString('yyyy-MM-dd')
+            $date = $s.LastModified.ToString('yyyy-MM-dd')
             $title = if ($s.Title) { $s.Title } else { '(untitled)' }
             if ($title.Length -gt 43) { $title = $title.Substring(0, 40) + '...' }
             $model = $s.Model
