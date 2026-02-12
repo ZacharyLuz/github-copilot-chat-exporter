@@ -1,0 +1,115 @@
+name: Code Scanning — PSScriptAnalyzer
+
+on:
+  push:
+    branches: [main, dev/v2]
+    paths: ['**.ps1']
+  pull_request:
+    branches: [main]
+    paths: ['**.ps1']
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  psscriptanalyzer:
+    name: PSScriptAnalyzer
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
+          $results = Get-ChildItem -Path . -Filter '*.ps1' -Recurse |
+            Where-Object { $_.FullName -notmatch '[/\\]Dev[/\\]' } |
+            ForEach-Object {
+              Invoke-ScriptAnalyzer -Path $_.FullName -Settings PSGallery -Recurse
+            }
+
+          # Convert to SARIF
+          $sarif = @{
+            '$schema' = 'https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json'
+            version   = '2.1.0'
+            runs      = @(
+              @{
+                tool = @{
+                  driver = @{
+                    name           = 'PSScriptAnalyzer'
+                    informationUri = 'https://github.com/PowerShell/PSScriptAnalyzer'
+                    rules          = @()
+                  }
+                }
+                results = @()
+              }
+            )
+          }
+
+          $ruleIndex = @{}
+          $rulesList = [System.Collections.ArrayList]::new()
+
+          foreach ($r in $results) {
+            if (-not $ruleIndex.ContainsKey($r.RuleName)) {
+              $ruleIndex[$r.RuleName] = $rulesList.Count
+              $null = $rulesList.Add(@{
+                id               = $r.RuleName
+                name             = $r.RuleName
+                shortDescription = @{ text = $r.RuleName }
+                helpUri          = "https://learn.microsoft.com/en-us/powershell/utility-modules/psscriptanalyzer/rules/$($r.RuleName)"
+                properties       = @{
+                  tags = @('PowerShell', 'PSScriptAnalyzer')
+                }
+              })
+            }
+
+            $level = switch ($r.Severity.ToString()) {
+              'Error'       { 'error' }
+              'Warning'     { 'warning' }
+              'Information' { 'note' }
+              default       { 'note' }
+            }
+
+            # Make path relative to workspace
+            $relPath = $r.ScriptPath
+            if ($relPath -and $relPath.StartsWith($PWD.Path)) {
+              $relPath = $relPath.Substring($PWD.Path.Length).TrimStart('/', '\')
+            }
+
+            $sarif.runs[0].results += @{
+              ruleId    = $r.RuleName
+              ruleIndex = $ruleIndex[$r.RuleName]
+              level     = $level
+              message   = @{ text = $r.Message }
+              locations = @(
+                @{
+                  physicalLocation = @{
+                    artifactLocation = @{ uri = ($relPath -replace '\\', '/') }
+                    region           = @{
+                      startLine   = [Math]::Max(1, $r.Line)
+                      startColumn = [Math]::Max(1, $r.Column)
+                    }
+                  }
+                }
+              )
+            }
+          }
+
+          $sarif.runs[0].tool.driver.rules = $rulesList.ToArray()
+
+          $sarifJson = $sarif | ConvertTo-Json -Depth 20 -Compress
+          Set-Content -Path 'psscriptanalyzer.sarif' -Value $sarifJson -Encoding UTF8
+
+          Write-Host "PSScriptAnalyzer found $($results.Count) issue(s)"
+          if ($results | Where-Object Severity -eq 'Error') {
+            Write-Host '::warning::PSScriptAnalyzer found errors — review the Code Scanning results'
+          }
+
+      - name: Upload SARIF results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: psscriptanalyzer.sarif
+          category: PSScriptAnalyzer
+        if: always()
