@@ -177,7 +177,6 @@ if (Test-Path $profilePath) {
             Write-Host "✅ Tool is configured in profile" -ForegroundColor Green
 
             # Check if path is correct
-            $expectedSource = ". `"$scriptDir\profile-functions.ps1`""
             if ($profileContent -match [regex]::Escape($scriptDir)) {
                 Write-Host "✅ Path is configured correctly" -ForegroundColor Green
             }
