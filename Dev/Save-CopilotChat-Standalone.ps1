@@ -53,11 +53,8 @@ $Config = @{
     TimestampFormat      = "HHmmss"
     TopicMaxLength       = 50
     JsonFilePrefix       = "CHAT-EXPORT"
-    # Converter settings (pinned to specific commit for supply chain security)
-    # Source: https://github.com/peckjon/copilot-chat-to-markdown
     ConverterFileName    = "chat_to_markdown.py"
-    ConverterCommit      = "2af92df35aa0b06836e80ce1df55662f00b80dca"
-    ConverterUrl         = "https://raw.githubusercontent.com/peckjon/copilot-chat-to-markdown/2af92df35aa0b06836e80ce1df55662f00b80dca/chat_to_markdown.py"
+    ConverterUrl         = "https://raw.githubusercontent.com/peckjon/copilot-chat-to-markdown/main/chat_to_markdown.py"
     FileWatchTimeout     = 300
     FileWatchInterval    = 2
     StatusUpdateInterval = 10
