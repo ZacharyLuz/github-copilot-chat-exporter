@@ -246,19 +246,19 @@ try {
     else {
         Write-ExporterLog -Level DEBUG -Message "Found VS Code: $($vscode.ProcessName) PID=$($vscode.Id) HWND=$($vscode.MainWindowHandle)"
 
-        # Load WinAPI only if not already loaded (prevents Add-Type crash on re-runs)
-        if (-not ([System.Management.Automation.PSTypeName]'WinAPI').Type) {
+        # Load WinAPI with unique name (prevents collision with old WinAPI from prior script versions)
+        if (-not ([System.Management.Automation.PSTypeName]'CopilotExporterWinAPI').Type) {
             Add-Type -TypeDefinition @"
                 using System;
                 using System.Runtime.InteropServices;
-                public class WinAPI {
+                public class CopilotExporterWinAPI {
                     [DllImport("user32.dll")]
                     public static extern bool SetForegroundWindow(IntPtr hWnd);
                     [DllImport("user32.dll")]
                     public static extern IntPtr GetForegroundWindow();
                 }
 "@
-            Write-ExporterLog -Level DEBUG -Message 'Loaded WinAPI type definition'
+            Write-ExporterLog -Level DEBUG -Message 'Loaded CopilotExporterWinAPI type definition'
         }
 
         # Load System.Windows.Forms assembly
@@ -271,12 +271,12 @@ try {
                 Write-ExporterLog -Level DEBUG -Message "SendKeys attempt $attempt of $maxAttempts"
 
                 # Focus VS Code window
-                $focused = [WinAPI]::SetForegroundWindow($vscode.MainWindowHandle)
+                $focused = [CopilotExporterWinAPI]::SetForegroundWindow($vscode.MainWindowHandle)
                 Write-ExporterLog -Level DEBUG -Message "SetForegroundWindow returned: $focused"
                 Start-Sleep -Milliseconds 500
 
                 # Verify focus was acquired
-                $foregroundHwnd = [WinAPI]::GetForegroundWindow()
+                $foregroundHwnd = [CopilotExporterWinAPI]::GetForegroundWindow()
                 if ($foregroundHwnd -ne $vscode.MainWindowHandle) {
                     Write-ExporterLog -Level WARN -Message "Focus check: expected HWND $($vscode.MainWindowHandle), got $foregroundHwnd"
                 }
