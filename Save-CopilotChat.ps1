@@ -70,14 +70,14 @@ $Config = @{
     StatusUpdateInterval = 10
 
     # Keyboard automation delays (milliseconds)
-    KeyDelay_Initial     = 300
-    KeyDelay_Command     = 200
-    KeyDelay_Execute     = 1500
-    KeyDelay_Paste       = 300
-    KeyDelay_Save        = 300
+    KeyDelay_Initial     = 500
+    KeyDelay_Command     = 500
+    KeyDelay_Execute     = 2000
+    KeyDelay_Paste       = 500
+    KeyDelay_Save        = 500
 
     # Logging
-    LogLevel             = 'Info'       # Error, Warning, Info, Debug
+    LogLevel             = 'Debug'      # Error, Warning, Info, Debug
     LogRetentionDays     = 30
 }
 
@@ -230,55 +230,106 @@ Write-Host $jsonFilename -ForegroundColor Cyan
 Write-Host "   Location: $env:TEMP" -ForegroundColor Gray
 Write-Host ""
 
-# Try to focus VS Code window and send keyboard commands
+# Auto-trigger with robust error handling and retry logic
+$autoTriggered = $false
+$scriptStartTime = Get-Date
+
 try {
     $vscode = Get-Process -Name "Code", "Code - Insiders" -ErrorAction SilentlyContinue |
         Where-Object { $_.MainWindowHandle -ne 0 } |
         Select-Object -First 1
-    if ($vscode) {
-        # Focus VS Code window
-        Add-Type -TypeDefinition @"
-            using System;
-            using System.Runtime.InteropServices;
-            public class WinAPI {
-                [DllImport("user32.dll")]
-                public static extern bool SetForegroundWindow(IntPtr hWnd);
-            }
-"@
-        [WinAPI]::SetForegroundWindow($vscode.MainWindowHandle)
-        Start-Sleep -Milliseconds 500
 
-        # Send keyboard commands to open Command Palette and trigger export
-        Add-Type -AssemblyName System.Windows.Forms
-        [System.Windows.Forms.SendKeys]::SendWait("{F1}")  # Open Command Palette
-        Start-Sleep -Milliseconds $Config.KeyDelay_Initial
-        [System.Windows.Forms.SendKeys]::SendWait("Chat: Export Chat")  # Type command
-        Start-Sleep -Milliseconds $Config.KeyDelay_Command
-        [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")  # Execute command
-
-        Write-Host "✓ Sent export command to VS Code!" -ForegroundColor Green
-
-        # Wait for save dialog to open, then auto-paste filename and save
-        Start-Sleep -Milliseconds $Config.KeyDelay_Execute
-        [System.Windows.Forms.SendKeys]::SendWait("^v")  # Ctrl+V to paste
-        Start-Sleep -Milliseconds $Config.KeyDelay_Paste
-        [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")  # Save file
-
-        Write-Host "✓ Auto-pasted filename and saved!" -ForegroundColor Green
-        Write-Host ""
-        Write-Host "🚀 Automation complete - waiting for file..." -ForegroundColor Cyan
-        Write-Host ""
+    if (-not $vscode) {
+        Write-ExporterLog -Level WARN -Message 'VS Code process not found for SendKeys automation'
+        Write-Host "⚠ VS Code not found - please export manually:" -ForegroundColor Yellow
     }
     else {
-        Write-ExporterLog -Level WARN -Message 'VS Code process not found for SendKeys automation'
-        Write-Host "⚠ VS Code not found - please open manually:" -ForegroundColor Yellow
-        Write-Host "  F1 → Chat: Export Chat" -ForegroundColor Gray
-        Write-Host ""
+        Write-ExporterLog -Level DEBUG -Message "Found VS Code: $($vscode.ProcessName) PID=$($vscode.Id) HWND=$($vscode.MainWindowHandle)"
+
+        # Load WinAPI only if not already loaded (prevents Add-Type crash on re-runs)
+        if (-not ([System.Management.Automation.PSTypeName]'WinAPI').Type) {
+            Add-Type -TypeDefinition @"
+                using System;
+                using System.Runtime.InteropServices;
+                public class WinAPI {
+                    [DllImport("user32.dll")]
+                    public static extern bool SetForegroundWindow(IntPtr hWnd);
+                    [DllImport("user32.dll")]
+                    public static extern IntPtr GetForegroundWindow();
+                }
+"@
+            Write-ExporterLog -Level DEBUG -Message 'Loaded WinAPI type definition'
+        }
+
+        # Load System.Windows.Forms assembly
+        Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue
+
+        # SendKeys with retry (attempt up to 2 times)
+        $maxAttempts = 2
+        for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+            try {
+                Write-ExporterLog -Level DEBUG -Message "SendKeys attempt $attempt of $maxAttempts"
+
+                # Focus VS Code window
+                $focused = [WinAPI]::SetForegroundWindow($vscode.MainWindowHandle)
+                Write-ExporterLog -Level DEBUG -Message "SetForegroundWindow returned: $focused"
+                Start-Sleep -Milliseconds 500
+
+                # Verify focus was acquired
+                $foregroundHwnd = [WinAPI]::GetForegroundWindow()
+                if ($foregroundHwnd -ne $vscode.MainWindowHandle) {
+                    Write-ExporterLog -Level WARN -Message "Focus check: expected HWND $($vscode.MainWindowHandle), got $foregroundHwnd"
+                }
+
+                # Dismiss any existing dialogs first
+                [System.Windows.Forms.SendKeys]::SendWait("{ESC}")
+                Start-Sleep -Milliseconds 200
+
+                # Open Command Palette
+                [System.Windows.Forms.SendKeys]::SendWait("{F1}")
+                Start-Sleep -Milliseconds $Config.KeyDelay_Initial
+
+                # Type export command
+                [System.Windows.Forms.SendKeys]::SendWait("Chat: Export Chat")
+                Start-Sleep -Milliseconds $Config.KeyDelay_Command
+
+                # Execute command
+                [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
+                Write-Host "✓ Sent export command to VS Code" -ForegroundColor Green
+
+                # Wait for save dialog
+                Start-Sleep -Milliseconds $Config.KeyDelay_Execute
+
+                # Paste filename and save
+                [System.Windows.Forms.SendKeys]::SendWait("^v")
+                Start-Sleep -Milliseconds $Config.KeyDelay_Paste
+                [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
+
+                Write-Host "✓ Auto-pasted filename and saved!" -ForegroundColor Green
+                Write-Host ""
+                $autoTriggered = $true
+                Write-ExporterLog -Level INFO -Message "SendKeys automation succeeded on attempt $attempt"
+                break
+            }
+            catch {
+                Write-ExporterLog -Level WARN -Message "SendKeys attempt $attempt failed: $($_.Exception.Message)" -ErrorRecord $_
+                if ($attempt -lt $maxAttempts) {
+                    Write-Host "⚠ Retrying automation..." -ForegroundColor Yellow
+                    Start-Sleep -Milliseconds 1000
+                }
+            }
+        }
     }
 }
 catch {
-    Write-Host "⚠ Auto-trigger failed - please open manually:" -ForegroundColor Yellow
-    Write-Host "  F1 → Chat: Export Chat" -ForegroundColor Gray
+    Write-ExporterLog -Level ERROR -Message "Auto-trigger error: $($_.Exception.Message)" -ErrorRecord $_
+}
+
+if (-not $autoTriggered) {
+    Write-Host "⚠ Please export the chat manually:" -ForegroundColor Yellow
+    Write-Host "  1. Press F1 in VS Code" -ForegroundColor Gray
+    Write-Host "  2. Type 'Chat: Export Chat' and press Enter" -ForegroundColor Gray
+    Write-Host "  3. Press Ctrl+V to paste the filename, then Enter to save" -ForegroundColor Gray
     Write-Host ""
 }
 
@@ -291,7 +342,25 @@ Write-Host ""
 $timeout = $Config.FileWatchTimeout
 $elapsed = 0
 
-while (-not (Test-Path $jsonFullPath) -and $elapsed -lt $timeout) {
+while ($elapsed -lt $timeout) {
+    # Check for exact expected file
+    if (Test-Path $jsonFullPath) {
+        Write-ExporterLog -Level DEBUG -Message "Found exact export file: $jsonFullPath"
+        break
+    }
+
+    # Also check for any newer CHAT-EXPORT files (user may have saved manually)
+    $newExport = Get-ChildItem -Path $env:TEMP -Filter "$($Config.JsonFilePrefix)-*.json" -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.CreationTime -gt $scriptStartTime } |
+        Sort-Object CreationTime -Descending |
+        Select-Object -First 1
+
+    if ($newExport) {
+        $jsonFullPath = $newExport.FullName
+        Write-ExporterLog -Level INFO -Message "Found export file via pattern match: $jsonFullPath"
+        break
+    }
+
     Start-Sleep -Seconds $Config.FileWatchInterval
     $elapsed += $Config.FileWatchInterval
 
