@@ -156,32 +156,58 @@ function Start-VsCodeExport {
             Select-Object -First 1
 
         if ($vscode) {
-            # Focus VS Code
-            Add-Type -TypeDefinition @"
-                using System;
-                using System.Runtime.InteropServices;
-                public class WinAPI {
-                    [DllImport("user32.dll")]
-                    public static extern bool SetForegroundWindow(IntPtr hWnd);
-                }
+            # Load WinAPI with unique name (prevents collision with old WinAPI from prior script versions)
+            if (-not ([System.Management.Automation.PSTypeName]'CopilotExporterWinAPI').Type) {
+                Add-Type -TypeDefinition @"
+                    using System;
+                    using System.Runtime.InteropServices;
+                    public class CopilotExporterWinAPI {
+                        [DllImport("user32.dll")]
+                        public static extern bool SetForegroundWindow(IntPtr hWnd);
+                        [DllImport("user32.dll")]
+                        public static extern IntPtr GetForegroundWindow();
+                    }
 "@
-            [WinAPI]::SetForegroundWindow($vscode.MainWindowHandle)
-            Start-Sleep -Milliseconds 500
+            }
 
-            # Send keyboard commands
-            Add-Type -AssemblyName System.Windows.Forms
-            [System.Windows.Forms.SendKeys]::SendWait("{F1}")
-            Start-Sleep -Milliseconds $Config.KeyDelay_Initial
-            [System.Windows.Forms.SendKeys]::SendWait("Chat: Export Chat")
-            Start-Sleep -Milliseconds $Config.KeyDelay_Command
-            [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
-            Start-Sleep -Milliseconds $Config.KeyDelay_Execute
-            [System.Windows.Forms.SendKeys]::SendWait("^v")
-            Start-Sleep -Milliseconds $Config.KeyDelay_Paste
-            [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
+            # Load System.Windows.Forms assembly
+            Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue
 
-            Write-ColorHost "✓ Export command sent!" "Green"
-            Write-Host ""
+            # SendKeys with retry (up to 2 attempts)
+            $maxAttempts = 2
+            $succeeded = $false
+            for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+                try {
+                    [CopilotExporterWinAPI]::SetForegroundWindow($vscode.MainWindowHandle)
+                    Start-Sleep -Milliseconds 500
+
+                    # Dismiss any existing dialogs first
+                    [System.Windows.Forms.SendKeys]::SendWait("{ESC}")
+                    Start-Sleep -Milliseconds 200
+
+                    [System.Windows.Forms.SendKeys]::SendWait("{F1}")
+                    Start-Sleep -Milliseconds $Config.KeyDelay_Initial
+                    [System.Windows.Forms.SendKeys]::SendWait("Chat: Export Chat")
+                    Start-Sleep -Milliseconds $Config.KeyDelay_Command
+                    [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
+                    Start-Sleep -Milliseconds $Config.KeyDelay_Execute
+                    [System.Windows.Forms.SendKeys]::SendWait("^v")
+                    Start-Sleep -Milliseconds $Config.KeyDelay_Paste
+                    [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
+
+                    Write-ColorHost "✓ Export command sent!" "Green"
+                    Write-Host ""
+                    $succeeded = $true
+                    break
+                }
+                catch {
+                    if ($attempt -lt $maxAttempts) {
+                        Write-ColorHost "⚠ Retrying automation..." "Yellow"
+                        Start-Sleep -Milliseconds 1000
+                    }
+                }
+            }
+            if (-not $succeeded) { throw "SendKeys failed after $maxAttempts attempts" }
             return $true
         }
         else {
