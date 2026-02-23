@@ -166,7 +166,9 @@ Write-Host ""
 
 # Try to focus VS Code window and send keyboard commands
 try {
-    $vscode = Get-Process -Name "Code" -ErrorAction SilentlyContinue | Select-Object -First 1
+    $vscode = Get-Process -Name "Code", "Code - Insiders" -ErrorAction SilentlyContinue |
+        Where-Object { $_.MainWindowHandle -ne 0 } |
+        Select-Object -First 1
     if ($vscode) {
         # Focus VS Code window
         Add-Type -TypeDefinition @"

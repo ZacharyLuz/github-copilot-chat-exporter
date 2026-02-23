@@ -105,7 +105,7 @@ function Test-Prerequisite {
     }
 
     # Check VS Code (warning only)
-    $vscode = Get-Process -Name "Code" -ErrorAction SilentlyContinue
+    $vscode = Get-Process -Name "Code", "Code - Insiders" -ErrorAction SilentlyContinue | Select-Object -First 1
     if (-not $vscode) {
         Write-ColorHost "⚠ VS Code not running (start it for auto-export)" "Yellow"
     }
@@ -151,7 +151,9 @@ function Start-VsCodeExport {
     Write-Host ""
 
     try {
-        $vscode = Get-Process -Name "Code" -ErrorAction SilentlyContinue | Select-Object -First 1
+        $vscode = Get-Process -Name "Code", "Code - Insiders" -ErrorAction SilentlyContinue |
+            Where-Object { $_.MainWindowHandle -ne 0 } |
+            Select-Object -First 1
 
         if ($vscode) {
             # Focus VS Code

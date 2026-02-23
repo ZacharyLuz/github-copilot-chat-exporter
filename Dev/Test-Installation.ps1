@@ -66,7 +66,7 @@ Write-Host ""
 # ============================================================================
 Write-Host "🔍 Test 3: VS Code" -ForegroundColor Yellow
 
-$vscode = Get-Process -Name "Code" -ErrorAction SilentlyContinue
+$vscode = Get-Process -Name "Code", "Code - Insiders" -ErrorAction SilentlyContinue | Select-Object -First 1
 if ($vscode) {
     Write-Host "✅ PASS - VS Code is running (PID: $($vscode.Id))" -ForegroundColor Green
 }
