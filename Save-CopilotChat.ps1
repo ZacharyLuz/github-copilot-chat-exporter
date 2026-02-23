@@ -49,7 +49,7 @@ $ErrorActionPreference = "Stop"
 # ============================================================================
 $Config = @{
     # Output settings
-    SessionsFolderName   = "sessions"
+    SessionsBasePath     = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'CopilotChatSessions'
     DateFormat           = "yyyy-MM-dd"
     YearMonthFormat      = "yyyy-MM"
     TimestampFormat      = "HHmmss"
@@ -75,11 +75,77 @@ $Config = @{
     KeyDelay_Execute     = 1500
     KeyDelay_Paste       = 300
     KeyDelay_Save        = 300
+
+    # Logging
+    LogLevel             = 'Info'       # Error, Warning, Info, Debug
+    LogRetentionDays     = 30
+}
+
+# ============================================================================
+# LOGGING
+# ============================================================================
+
+function Write-ExporterLog {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateSet('ERROR', 'WARN', 'INFO', 'DEBUG')]
+        [string]$Level,
+
+        [Parameter(Mandatory)]
+        [string]$Message,
+
+        [System.Management.Automation.ErrorRecord]$ErrorRecord
+    )
+
+    $levelMap = @{ 'ERROR' = 0; 'WARN' = 1; 'INFO' = 2; 'DEBUG' = 3 }
+    $configLevelKey = switch ($Config.LogLevel) {
+        'Error'   { 'ERROR' }
+        'Warning' { 'WARN' }
+        'Info'    { 'INFO' }
+        'Debug'   { 'DEBUG' }
+        default   { 'INFO' }
+    }
+
+    if ($levelMap[$Level] -gt $levelMap[$configLevelKey]) { return }
+
+    $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+    $paddedLevel = $Level.PadRight(5)
+    $logLine = "$timestamp [$paddedLevel] $Message"
+
+    if ($ErrorRecord) {
+        $logLine += "`n$timestamp [$paddedLevel] Stack: $($ErrorRecord.ScriptStackTrace)"
+    }
+
+    try {
+        $logsDir = Join-Path $Config.SessionsBasePath 'logs'
+        if (-not (Test-Path $logsDir)) {
+            New-Item -ItemType Directory -Path $logsDir -Force | Out-Null
+        }
+        $logFile = Join-Path $logsDir "copilot-exporter-$(Get-Date -Format 'yyyy-MM-dd').log"
+        Add-Content -Path $logFile -Value $logLine -Encoding UTF8 -ErrorAction SilentlyContinue
+    }
+    catch {
+        # Logging should never crash the app
+    }
+}
+
+function Invoke-LogMaintenance {
+    $logsDir = Join-Path $Config.SessionsBasePath 'logs'
+    if (-not (Test-Path $logsDir)) { return }
+
+    $cutoff = (Get-Date).AddDays(-$Config.LogRetentionDays)
+    Get-ChildItem -Path $logsDir -Filter 'copilot-exporter-*.log' -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.LastWriteTime -lt $cutoff } |
+        Remove-Item -Force -ErrorAction SilentlyContinue
 }
 
 Write-Host "`n💬 Copilot Chat Export & Conversion" -ForegroundColor Cyan
 Write-Host "═══════════════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host ""
+
+Write-ExporterLog -Level INFO -Message "Export started. Topic='$Topic' SessionsBasePath='$($Config.SessionsBasePath)'"
+Invoke-LogMaintenance
 
 # ============================================================================
 # STEP 1: Get Topic (Optional - will auto-generate if not provided)
@@ -105,14 +171,14 @@ $date = Get-Date -Format $Config.DateFormat
 $yearMonth = Get-Date -Format $Config.YearMonthFormat
 $filename = "${date}_${safeTopic}.md"
 
-$sessionsDir = Join-Path $scriptDir "$($Config.SessionsFolderName)\$yearMonth"
+$sessionsDir = Join-Path $Config.SessionsBasePath $yearMonth
 $converterScript = Join-Path $scriptDir $Config.ConverterFileName
 $outputPath = Join-Path $sessionsDir $filename
 
 # Create sessions directory
 if (-not (Test-Path $sessionsDir)) {
     New-Item -ItemType Directory -Path $sessionsDir -Force | Out-Null
-    Write-Host "✓ Created: sessions\$yearMonth\" -ForegroundColor Green
+    Write-Host "✓ Created: $sessionsDir" -ForegroundColor Green
     Write-Host ""
 }
 
@@ -156,12 +222,12 @@ Write-Host ""
 # Create FULL PATH with timestamp for uniqueness - paste complete path so VS Code saves exactly where we expect
 $timestamp = Get-Date -Format $Config.TimestampFormat
 $jsonFilename = "$($Config.JsonFilePrefix)-${date}_${timestamp}.json"
-$jsonFullPath = Join-Path $scriptDir $jsonFilename
+$jsonFullPath = Join-Path $env:TEMP $jsonFilename
 $jsonFullPath | Set-Clipboard
 
 Write-Host "💡 Using filename: " -ForegroundColor Yellow -NoNewline
 Write-Host $jsonFilename -ForegroundColor Cyan
-Write-Host "   Location: $scriptDir" -ForegroundColor Gray
+Write-Host "   Location: $env:TEMP" -ForegroundColor Gray
 Write-Host ""
 
 # Try to focus VS Code window and send keyboard commands
@@ -204,6 +270,7 @@ try {
         Write-Host ""
     }
     else {
+        Write-ExporterLog -Level WARN -Message 'VS Code process not found for SendKeys automation'
         Write-Host "⚠ VS Code not found - please open manually:" -ForegroundColor Yellow
         Write-Host "  F1 → Chat: Export Chat" -ForegroundColor Gray
         Write-Host ""
@@ -236,6 +303,7 @@ while (-not (Test-Path $jsonFullPath) -and $elapsed -lt $timeout) {
 Write-Host ""
 
 if (-not (Test-Path $jsonFullPath)) {
+    Write-ExporterLog -Level ERROR -Message "Timeout after ${elapsed}s waiting for export file: $jsonFullPath"
     Write-Host "❌ Timeout waiting for export file" -ForegroundColor Red
     Write-Host "   Expected: $jsonFullPath" -ForegroundColor Yellow
     exit 1
@@ -333,9 +401,8 @@ try {
             Write-Host "✓ Cleaned up temporary JSON file" -ForegroundColor Green
         }
 
-        # Also clean up any other old chat export JSON files (FILES ONLY, not folders)
-        Get-ChildItem -Path $scriptDir -Filter "CHAT-EXPORT-*.json" -File -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
-        Get-ChildItem -Path $scriptDir -Filter "chat.json" -File -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+        # Also clean up any other old chat export JSON files from temp (FILES ONLY, not folders)
+        Get-ChildItem -Path $env:TEMP -Filter "CHAT-EXPORT-*.json" -File -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
         Write-Host "✓ Cleaned up old export files" -ForegroundColor Green
         Write-Host ""
 
@@ -346,16 +413,19 @@ try {
         }
 
         Write-Host ""
-        Write-Host "🎉 Done! Chat saved to sessions\$yearMonth\" -ForegroundColor Green
+        Write-Host "🎉 Done! Chat saved to $sessionsDir" -ForegroundColor Green
+        Write-ExporterLog -Level INFO -Message "Export completed: $outputPath ($fileSize KB)"
 
     }
     else {
+        Write-ExporterLog -Level ERROR -Message 'Conversion failed - output file not created'
         Write-Host "❌ Conversion failed - output file not created" -ForegroundColor Red
         exit 1
     }
 
 }
 catch {
+    Write-ExporterLog -Level ERROR -Message "Conversion error: $_" -ErrorRecord $_
     Write-Host "❌ Conversion error: $_" -ForegroundColor Red
     Write-Host ""
     Write-Host "Troubleshooting:" -ForegroundColor Yellow

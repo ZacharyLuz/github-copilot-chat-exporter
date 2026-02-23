@@ -335,7 +335,7 @@ if (-not (Test-Prerequisite)) {
 # Setup paths
 $scriptDir = $PSScriptRoot
 if ([string]::IsNullOrWhiteSpace($OutputPath)) {
-    $OutputPath = Join-Path $scriptDir "sessions"
+    $OutputPath = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'CopilotChatSessions'
 }
 
 $date = Get-Date -Format $Config.DateFormat
@@ -370,7 +370,7 @@ Write-Host ""
 
 # Setup export file path
 $jsonFilename = "$($Config.JsonFilePrefix)-${date}_${timestamp}.json"
-$jsonFullPath = Join-Path $scriptDir $jsonFilename
+$jsonFullPath = Join-Path $env:TEMP $jsonFilename
 
 # Trigger export in VS Code
 $null = Start-VsCodeExport -JsonFullPath $jsonFullPath
@@ -400,7 +400,7 @@ $success = Convert-ChatToMarkdown -JsonPath $jsonFullPath -OutputPath $outputPat
 
 if ($success) {
     # Cleanup old exports
-    Get-ChildItem -Path $scriptDir -Filter "CHAT-EXPORT-*.json" -File | Remove-Item -Force -ErrorAction SilentlyContinue
+    Get-ChildItem -Path $env:TEMP -Filter "CHAT-EXPORT-*.json" -File | Remove-Item -Force -ErrorAction SilentlyContinue
 
     # Offer to open
     $open = Read-Host "Open in VS Code? (y/n)"
@@ -409,7 +409,7 @@ if ($success) {
     }
 
     Write-Host ""
-    Write-ColorHost "🎉 Done! Saved to: sessions\$yearMonth\" "Green"
+    Write-ColorHost "🎉 Done! Saved to: $sessionsDir" "Green"
     Write-Host ""
 }
 else {
