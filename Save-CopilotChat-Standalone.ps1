@@ -105,7 +105,8 @@ function Test-Prerequisite {
     }
 
     # Check VS Code (warning only)
-    $vscode = Get-Process -Name "Code", "Code - Insiders" -ErrorAction SilentlyContinue | Select-Object -First 1
+    $vscode = Get-Process -Name "Code", "Code - Insiders" -ErrorAction SilentlyContinue |
+        Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
     if (-not $vscode) {
         Write-ColorHost "⚠ VS Code not running (start it for auto-export)" "Yellow"
     }
@@ -151,9 +152,24 @@ function Start-VsCodeExport {
     Write-Host ""
 
     try {
-        $vscode = Get-Process -Name "Code", "Code - Insiders" -ErrorAction SilentlyContinue |
+        # Detect which VS Code edition the terminal is running inside
+        $preferredProcessName = if ($env:TERM_PROGRAM_VERSION -match 'insider' -or
+            $env:VSCODE_GIT_ASKPASS_NODE -match 'Insiders') {
+            'Code - Insiders'
+        } else {
+            'Code'
+        }
+
+        # Try preferred edition first, then fall back to any VS Code
+        $vscode = Get-Process -Name $preferredProcessName -ErrorAction SilentlyContinue |
             Where-Object { $_.MainWindowHandle -ne 0 } |
             Select-Object -First 1
+
+        if (-not $vscode) {
+            $vscode = Get-Process -Name "Code", "Code - Insiders" -ErrorAction SilentlyContinue |
+                Where-Object { $_.MainWindowHandle -ne 0 } |
+                Select-Object -First 1
+        }
 
         if ($vscode) {
             # Load WinAPI with unique name (prevents collision with old WinAPI from prior script versions)
