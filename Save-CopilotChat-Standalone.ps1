@@ -16,7 +16,7 @@
     Optional custom topic name for the saved chat
 
 .PARAMETER OutputPath
-    Optional custom output directory (defaults to .\sessions)
+    Optional custom output directory (defaults to Documents\CopilotChatSessions)
 
 .EXAMPLE
     .\Save-CopilotChat-Standalone.ps1
@@ -105,7 +105,8 @@ function Test-Prerequisite {
     }
 
     # Check VS Code (warning only)
-    $vscode = Get-Process -Name "Code" -ErrorAction SilentlyContinue
+    $vscode = Get-Process -Name "Code", "Code - Insiders" -ErrorAction SilentlyContinue |
+        Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
     if (-not $vscode) {
         Write-ColorHost "⚠ VS Code not running (start it for auto-export)" "Yellow"
     }
@@ -151,35 +152,78 @@ function Start-VsCodeExport {
     Write-Host ""
 
     try {
-        $vscode = Get-Process -Name "Code" -ErrorAction SilentlyContinue | Select-Object -First 1
+        # Detect which VS Code edition the terminal is running inside
+        $preferredProcessName = if ($env:TERM_PROGRAM_VERSION -match 'insider' -or
+            $env:VSCODE_GIT_ASKPASS_NODE -match 'Insiders') {
+            'Code - Insiders'
+        } else {
+            'Code'
+        }
+
+        # Try preferred edition first, then fall back to any VS Code
+        $vscode = Get-Process -Name $preferredProcessName -ErrorAction SilentlyContinue |
+            Where-Object { $_.MainWindowHandle -ne 0 } |
+            Select-Object -First 1
+
+        if (-not $vscode) {
+            $vscode = Get-Process -Name "Code", "Code - Insiders" -ErrorAction SilentlyContinue |
+                Where-Object { $_.MainWindowHandle -ne 0 } |
+                Select-Object -First 1
+        }
 
         if ($vscode) {
-            # Focus VS Code
-            Add-Type -TypeDefinition @"
-                using System;
-                using System.Runtime.InteropServices;
-                public class WinAPI {
-                    [DllImport("user32.dll")]
-                    public static extern bool SetForegroundWindow(IntPtr hWnd);
-                }
+            # Load WinAPI with unique name (prevents collision with old WinAPI from prior script versions)
+            if (-not ([System.Management.Automation.PSTypeName]'CopilotExporterWinAPI').Type) {
+                Add-Type -TypeDefinition @"
+                    using System;
+                    using System.Runtime.InteropServices;
+                    public class CopilotExporterWinAPI {
+                        [DllImport("user32.dll")]
+                        public static extern bool SetForegroundWindow(IntPtr hWnd);
+                        [DllImport("user32.dll")]
+                        public static extern IntPtr GetForegroundWindow();
+                    }
 "@
-            [WinAPI]::SetForegroundWindow($vscode.MainWindowHandle)
-            Start-Sleep -Milliseconds 500
+            }
 
-            # Send keyboard commands
-            Add-Type -AssemblyName System.Windows.Forms
-            [System.Windows.Forms.SendKeys]::SendWait("{F1}")
-            Start-Sleep -Milliseconds $Config.KeyDelay_Initial
-            [System.Windows.Forms.SendKeys]::SendWait("Chat: Export Chat")
-            Start-Sleep -Milliseconds $Config.KeyDelay_Command
-            [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
-            Start-Sleep -Milliseconds $Config.KeyDelay_Execute
-            [System.Windows.Forms.SendKeys]::SendWait("^v")
-            Start-Sleep -Milliseconds $Config.KeyDelay_Paste
-            [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
+            # Load System.Windows.Forms assembly
+            Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue
 
-            Write-ColorHost "✓ Export command sent!" "Green"
-            Write-Host ""
+            # SendKeys with retry (up to 2 attempts)
+            $maxAttempts = 2
+            $succeeded = $false
+            for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+                try {
+                    [CopilotExporterWinAPI]::SetForegroundWindow($vscode.MainWindowHandle)
+                    Start-Sleep -Milliseconds 500
+
+                    # Dismiss any existing dialogs first
+                    [System.Windows.Forms.SendKeys]::SendWait("{ESC}")
+                    Start-Sleep -Milliseconds 200
+
+                    [System.Windows.Forms.SendKeys]::SendWait("{F1}")
+                    Start-Sleep -Milliseconds $Config.KeyDelay_Initial
+                    [System.Windows.Forms.SendKeys]::SendWait("Chat: Export Chat")
+                    Start-Sleep -Milliseconds $Config.KeyDelay_Command
+                    [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
+                    Start-Sleep -Milliseconds $Config.KeyDelay_Execute
+                    [System.Windows.Forms.SendKeys]::SendWait("^v")
+                    Start-Sleep -Milliseconds $Config.KeyDelay_Paste
+                    [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
+
+                    Write-ColorHost "✓ Export command sent!" "Green"
+                    Write-Host ""
+                    $succeeded = $true
+                    break
+                }
+                catch {
+                    if ($attempt -lt $maxAttempts) {
+                        Write-ColorHost "⚠ Retrying automation..." "Yellow"
+                        Start-Sleep -Milliseconds 1000
+                    }
+                }
+            }
+            if (-not $succeeded) { throw "SendKeys failed after $maxAttempts attempts" }
             return $true
         }
         else {
@@ -333,7 +377,7 @@ if (-not (Test-Prerequisite)) {
 # Setup paths
 $scriptDir = $PSScriptRoot
 if ([string]::IsNullOrWhiteSpace($OutputPath)) {
-    $OutputPath = Join-Path $scriptDir "sessions"
+    $OutputPath = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'CopilotChatSessions'
 }
 
 $date = Get-Date -Format $Config.DateFormat
@@ -355,7 +399,7 @@ else {
 $sessionsDir = Join-Path $OutputPath $yearMonth
 if (-not (Test-Path $sessionsDir)) {
     New-Item -ItemType Directory -Path $sessionsDir -Force | Out-Null
-    Write-ColorHost "✓ Created directory: sessions\$yearMonth\" "Green"
+    Write-ColorHost "✓ Created directory: $sessionsDir" "Green"
 }
 Write-Host ""
 
@@ -368,7 +412,7 @@ Write-Host ""
 
 # Setup export file path
 $jsonFilename = "$($Config.JsonFilePrefix)-${date}_${timestamp}.json"
-$jsonFullPath = Join-Path $scriptDir $jsonFilename
+$jsonFullPath = Join-Path $env:TEMP $jsonFilename
 
 # Trigger export in VS Code
 $null = Start-VsCodeExport -JsonFullPath $jsonFullPath
@@ -398,7 +442,7 @@ $success = Convert-ChatToMarkdown -JsonPath $jsonFullPath -OutputPath $outputPat
 
 if ($success) {
     # Cleanup old exports
-    Get-ChildItem -Path $scriptDir -Filter "CHAT-EXPORT-*.json" -File | Remove-Item -Force -ErrorAction SilentlyContinue
+    Get-ChildItem -Path $env:TEMP -Filter "CHAT-EXPORT-*.json" -File | Remove-Item -Force -ErrorAction SilentlyContinue
 
     # Offer to open
     $open = Read-Host "Open in VS Code? (y/n)"
@@ -407,7 +451,7 @@ if ($success) {
     }
 
     Write-Host ""
-    Write-ColorHost "🎉 Done! Saved to: sessions\$yearMonth\" "Green"
+    Write-ColorHost "🎉 Done! Saved to: $sessionsDir" "Green"
     Write-Host ""
 }
 else {

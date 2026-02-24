@@ -67,7 +67,7 @@ catch {
 }
 
 # Check VS Code
-$vscode = Get-Process -Name "Code" -ErrorAction SilentlyContinue
+$vscode = Get-Process -Name "Code", "Code - Insiders" -ErrorAction SilentlyContinue | Select-Object -First 1
 if ($vscode) {
     Write-Host "✓ VS Code is running" -ForegroundColor Green
 }
