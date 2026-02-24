@@ -100,7 +100,7 @@ function Resume-GitHubCopilotChat {
         # Shows last 10 sessions and opens selected file
     #>
 
-    # ⚠️ UPDATE THIS PATH to where your chat sessions are saved
+    # Uses the default chat sessions folder; change this only if you store sessions elsewhere
     $sessionsPath = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'CopilotChatSessions'
 
     if (-not (Test-Path $sessionsPath)) {

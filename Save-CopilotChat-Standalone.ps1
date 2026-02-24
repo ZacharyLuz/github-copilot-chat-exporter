@@ -16,7 +16,7 @@
     Optional custom topic name for the saved chat
 
 .PARAMETER OutputPath
-    Optional custom output directory (defaults to .\sessions)
+    Optional custom output directory (defaults to Documents\CopilotChatSessions)
 
 .EXAMPLE
     .\Save-CopilotChat-Standalone.ps1
@@ -399,7 +399,7 @@ else {
 $sessionsDir = Join-Path $OutputPath $yearMonth
 if (-not (Test-Path $sessionsDir)) {
     New-Item -ItemType Directory -Path $sessionsDir -Force | Out-Null
-    Write-ColorHost "✓ Created directory: sessions\$yearMonth\" "Green"
+    Write-ColorHost "✓ Created directory: $sessionsDir" "Green"
 }
 Write-Host ""
 

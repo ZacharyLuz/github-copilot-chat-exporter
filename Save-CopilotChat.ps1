@@ -8,7 +8,7 @@
     2. Guides through VS Code chat export
     3. Auto-downloads Python converter if needed
     4. Converts JSON to beautiful markdown
-    5. Saves in organized sessions/YYYY-MM/ structure
+    5. Saves in organized Documents\CopilotChatSessions\YYYY-MM\ structure
     6. Cleans up temporary files
 
 .EXAMPLE
@@ -111,7 +111,8 @@ function Write-ExporterLog {
 
     $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
     $paddedLevel = $Level.PadRight(5)
-    $logLine = "$timestamp [$paddedLevel] $Message"
+    $sanitized = $Message -replace '[\r\n]+', ' '
+    $logLine = "$timestamp [$paddedLevel] $sanitized"
 
     if ($ErrorRecord) {
         $logLine += "`n$timestamp [$paddedLevel] Stack: $($ErrorRecord.ScriptStackTrace)"
@@ -126,7 +127,7 @@ function Write-ExporterLog {
         Add-Content -Path $logFile -Value $logLine -Encoding UTF8 -ErrorAction SilentlyContinue
     }
     catch {
-        # Logging should never crash the app
+        # Intentionally empty - logging must never crash the exporter
     }
 }
 
