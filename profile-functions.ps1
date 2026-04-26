@@ -1,7 +1,7 @@
 # PowerShell Profile Functions for GitHub Copilot Chat Exporter
 # Author: Zachary Luz
-# Version: 1.0.0
-# Release Date: January 2026
+# Version: 2.0.0
+# Release Date: February 2026
 #
 # Add these functions to your PowerShell profile ($PROFILE)
 
@@ -19,54 +19,148 @@
 function Save-GitHubCopilotChat {
     <#
     .SYNOPSIS
-        Export and convert GitHub Copilot chat (VS Code) to organized markdown
+        Export GitHub Copilot chat sessions to organized markdown.
 
     .DESCRIPTION
-        Fully automated workflow to export GitHub Copilot chat sessions,
-        convert to formatted markdown, and organize in dated folders.
+        Unified exporter for both VS Code Copilot Chat and Copilot CLI terminal
+        sessions. When called with no parameters, shows an interactive menu.
 
-        ⚠️ ONLY WORKS WITH GITHUB COPILOT CHAT IN VS CODE
-        This does NOT work with M365 Copilot, Copilot Studio, or other Copilot variants.
+        Supports VS Code (v2 engine with direct file read) and Copilot CLI
+        (events.jsonl parser with full tool call export).
+
+    .PARAMETER CLI
+        Export a Copilot CLI terminal session (from ~/.copilot/session-state/).
 
     .PARAMETER Topic
         Optional custom topic name for the saved chat.
-        If not provided, will auto-generate from first message content.
+
+    .PARAMETER List
+        Browse and select from recent sessions (paginated).
+
+    .PARAMETER Session
+        Export a specific session by ID.
+
+    .PARAMETER All
+        Export all VS Code sessions.
 
     .EXAMPLE
         Save-GitHubCopilotChat
-        # Fully automated: exports, generates topic, converts, organizes
+        # Interactive menu — pick CLI or VS Code
 
     .EXAMPLE
-        Save-GitHubCopilotChat -Topic "azure-deployment"
-        # Uses custom topic name instead of auto-generation
+        save-chat -CLI
+        # Export the most recent Copilot CLI session
+
+    .EXAMPLE
+        save-chat -CLI -List
+        # Browse and pick from recent CLI sessions
+
+    .EXAMPLE
+        save-chat -List
+        # Browse and pick from recent VS Code sessions
 
     .NOTES
-        Requires: Python 3.6+, PowerShell 7+, VS Code
-        Output: sessions/YYYY-MM/YYYY-MM-DD_HHMMSS_topic.md
-        Auto-cleanup: Removes temporary JSON files after conversion
+        Output: ~/Documents/CopilotChatSessions/YYYY-MM/YYYY-MM-DD_topic.md
+        Alias: save-chat
     #>
 
+    [CmdletBinding()]
     param(
+        [switch]$CLI,
         [Parameter(Mandatory = $false)]
-        [string]$Topic
+        [string]$Topic,
+        [switch]$List,
+        [switch]$All,
+        [string]$Session,
+        [switch]$Catalog,
+        [switch]$Update,
+        [switch]$UseSendKeys,
+        [switch]$NoWorkspaceLink,
+        [switch]$SkipSecretScan,
+        [switch]$Force,
+        [switch]$Check,
+        [switch]$Rollback,
+        [string]$LogLevel,
+        [switch]$NoLog
     )
 
-    # ⚠️ UPDATE THIS PATH to where you cloned the repository
-    $scriptPath = "$env:USERPROFILE\path\to\github-copilot-chat-exporter\Save-CopilotChat.ps1"
+    # Resolve script directory — works whether sourced or copied
+    $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else {
+        # Fallback: try common install locations
+        $candidates = @(
+            "$env:USERPROFILE\OneDrive - Microsoft\Documents\Scripts\dev\copilot-chat-exporter",
+            "$env:USERPROFILE\github-copilot-chat-exporter",
+            "$env:USERPROFILE\Documents\github-copilot-chat-exporter"
+        )
+        $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+    }
 
-    if (-not (Test-Path $scriptPath)) {
-        Write-Host "❌ Script not found: $scriptPath" -ForegroundColor Red
-        Write-Host "   Update the path in your profile function" -ForegroundColor Yellow
+    if (-not $scriptDir -or -not (Test-Path $scriptDir)) {
+        Write-Host "❌ Copilot Chat Exporter not found." -ForegroundColor Red
+        Write-Host "   Re-run the installer or update the path in your profile." -ForegroundColor Gray
+        Write-Host "   See: https://github.com/ZacharyLuz/github-copilot-chat-exporter" -ForegroundColor DarkGray
         return
     }
 
-    & $scriptPath @PSBoundParameters
+    # If no flags provided, show an interactive menu
+    $hasExplicitChoice = $CLI -or $List -or $All -or $Session -or $Topic -or $Catalog -or $Update -or $Check -or $Rollback
+
+    if (-not $hasExplicitChoice) {
+        Write-Host ""
+        Write-Host "  💬 Save Chat — What would you like to export?" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "  [1] " -NoNewline -ForegroundColor Yellow; Write-Host "🤖 Copilot CLI session " -NoNewline; Write-Host "(terminal chat with Copilot)" -ForegroundColor DarkGray
+        Write-Host "  [2] " -NoNewline -ForegroundColor Yellow; Write-Host "📝 VS Code Copilot Chat " -NoNewline; Write-Host "(editor chat panel)" -ForegroundColor DarkGray
+        Write-Host "  [3] " -NoNewline -ForegroundColor Yellow; Write-Host "📋 Browse all CLI sessions " -NoNewline; Write-Host "(pick from a list)" -ForegroundColor DarkGray
+        Write-Host "  [4] " -NoNewline -ForegroundColor Yellow; Write-Host "📋 Browse all VS Code sessions " -NoNewline; Write-Host "(pick from a list)" -ForegroundColor DarkGray
+        Write-Host ""
+        $choice = Read-Host "  Select (1-4, or Enter to cancel)"
+
+        switch ($choice) {
+            '1' { $CLI = $true }
+            '2' { <# falls through to VS Code path #> }
+            '3' { $CLI = $true; $List = $true }
+            '4' { $List = $true }
+            default {
+                Write-Host "  Cancelled." -ForegroundColor DarkGray
+                return
+            }
+        }
+        Write-Host ""
+    }
+
+    if ($CLI) {
+        # Route to the Copilot CLI exporter
+        $cliScript = Join-Path $scriptDir "Save-CopilotChat-CLI.ps1"
+        if (-not (Test-Path $cliScript)) {
+            Write-Host "❌ CLI export script not found: $cliScript" -ForegroundColor Red
+            return
+        }
+        $cliParams = @{}
+        if ($Topic) { $cliParams['Topic'] = $Topic }
+        if ($List) { $cliParams['List'] = $true }
+        if ($Session) { $cliParams['Session'] = $Session }
+        & $cliScript @cliParams
+    }
+    else {
+        # Route to the VS Code v2 exporter
+        $v2Script = Join-Path $scriptDir "Save-CopilotChat-v2.ps1"
+        if (-not (Test-Path $v2Script)) {
+            Write-Host "❌ v2 script not found: $v2Script" -ForegroundColor Red
+            return
+        }
+        $v2Params = @{}
+        $PSBoundParameters.GetEnumerator() | Where-Object { $_.Key -ne 'CLI' } | ForEach-Object {
+            $v2Params[$_.Key] = $_.Value
+        }
+        & $v2Script @v2Params
+    }
 }
 
-# Aliases for convenience
+# Aliases — clean, short, memorable
+Set-Alias -Name save-chat -Value Save-GitHubCopilotChat
 Set-Alias -Name Save-GitHubChat -Value Save-GitHubCopilotChat
 Set-Alias -Name Export-GitHubCopilotChat -Value Save-GitHubCopilotChat
-Set-Alias -Name Save-GHCopilot -Value Save-GitHubCopilotChat
 
 # Resume previous GitHub Copilot chat session
 function Resume-GitHubCopilotChat {
@@ -87,9 +181,26 @@ function Resume-GitHubCopilotChat {
     $sessionsPath = "$env:USERPROFILE\path\to\github-copilot-chat-exporter\sessions"
 
     if (-not (Test-Path $sessionsPath)) {
-        Write-Host "❌ Sessions folder not found: $sessionsPath" -ForegroundColor Red
-        Write-Host "   Update the path in your profile function" -ForegroundColor Yellow
-        Write-Host "   Or export a chat first using: Save-GitHubChat" -ForegroundColor Gray
+        # Check if this looks like a placeholder path (installation issue)
+        if ($sessionsPath -match 'path.*to.*copilot') {
+            Write-Host "" -ForegroundColor Red
+            Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Red
+            Write-Host "║  ❌ Installation Not Complete - Path Configuration Needed    ║" -ForegroundColor Red
+            Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Red
+            Write-Host ""
+            Write-Host "The installation did not complete properly." -ForegroundColor Yellow
+            Write-Host ""
+            Write-Host "🔧 Quick Fix: Re-run the installer" -ForegroundColor Cyan
+            Write-Host "    cd <your-repo-path>" -ForegroundColor Gray
+            Write-Host "    .\Install-CopilotChatExporter.ps1 -Force" -ForegroundColor Gray
+            Write-Host ""
+            Write-Host "📚 Need help? See: https://github.com/ZacharyLuz/github-copilot-chat-exporter" -ForegroundColor DarkGray
+            Write-Host ""
+        } else {
+            Write-Host "📭 Sessions folder not found: $sessionsPath" -ForegroundColor Yellow
+            Write-Host "   This folder will be created when you export your first chat." -ForegroundColor Gray
+            Write-Host "   Run: Save-GitHubChat" -ForegroundColor Cyan
+        }
         return
     }
 
@@ -157,7 +268,8 @@ Set-Alias -Name Resume-Session -Value Resume-GitHubCopilotChat
 if ($env:TERM_PROGRAM -eq "vscode" -or $env:VSCODE_GIT_IPC_HANDLE) {
     $sessionsPath = "$env:USERPROFILE\path\to\github-copilot-chat-exporter\sessions"
 
-    if (Test-Path $sessionsPath) {
+    # Skip the reminder if paths aren't configured (avoid confusing error on startup)
+    if ($sessionsPath -notmatch 'path.*to.*copilot' -and (Test-Path $sessionsPath)) {
         $lastSession = Get-ChildItem -Path $sessionsPath -Filter "*.md" -File -Recurse |
             Sort-Object LastWriteTime -Descending |
             Select-Object -First 1
